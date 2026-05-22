@@ -4,6 +4,7 @@ import {
   DateField,
   FieldSpy,
   NumberField,
+  ConceptUrlField,
   SelectField,
   StringToggleField,
   TextField,
@@ -129,6 +130,12 @@ export function DataRow({
       <StringToggleField {...valueInputProps} />
     ) : selectedType?.vocabularyElementType === "DECIMAL" ? (
       <NumberField {...valueInputProps} isInteger={false} />
+    ) : selectedType?.vocabularyElementType === "CONCEPTURL" ? (
+      <ConceptUrlField
+        {...valueInputProps}
+        conceptQueryEndpoint={selectedType?.conceptQueryEndpoint}
+        topLevelConcept={selectedType?.topLevelConcept}
+      />
     ) : (
       <TextField {...valueInputProps} />
     );
