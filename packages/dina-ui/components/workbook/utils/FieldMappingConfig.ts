@@ -270,6 +270,18 @@ const FieldMappingConfig: FieldMappingConfigType = {
           attributes: {
             verbatimScientificName: { dataType: WorkbookDataTypeEnum.STRING },
             verbatimDeterminer: { dataType: WorkbookDataTypeEnum.STRING },
+            determiner: {
+              dataType: WorkbookDataTypeEnum.OBJECT_ARRAY,
+              relationshipConfig: {
+                hasGroup: false,
+                type: "person",
+                linkOrCreateSetting: LinkOrCreateSetting.LINK,
+                baseApiPath: "agent-api"
+              },
+              attributes: {
+                displayName: { dataType: WorkbookDataTypeEnum.STRING }
+              }
+            },
             verbatimDate: { dataType: WorkbookDataTypeEnum.DATE },
             determinedOn: { dataType: WorkbookDataTypeEnum.DATE },
             determinationRemarks: { dataType: WorkbookDataTypeEnum.STRING },

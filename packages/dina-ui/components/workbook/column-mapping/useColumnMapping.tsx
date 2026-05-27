@@ -32,7 +32,10 @@ import { FieldMapType } from "./WorkbookColumnMapping";
 import { Person } from "../../../types/agent-api/resources/Person";
 import { FaExclamationTriangle } from "react-icons/fa";
 import { ResourceNameIdentifier } from "../../../types/common/resources/ResourceNameIdentifier";
-import { PersonSelectField, ProjectSelectField } from "../../resource-select-fields/resource-select-fields";
+import {
+  PersonSelectField,
+  ProjectSelectField
+} from "../../resource-select-fields/resource-select-fields";
 
 export function useColumnMapping() {
   const { formatMessage } = useDinaIntl();
@@ -713,8 +716,10 @@ export function useColumnMapping() {
             theRelationshipMapping[columnHeader][sanitizedKey] = [found];
           } else {
             // Store only id and type for single-select
-            theRelationshipMapping[columnHeader][sanitizedKey] =
-              _.pick(found, ["id", "type"]);
+            theRelationshipMapping[columnHeader][sanitizedKey] = _.pick(found, [
+              "id",
+              "type"
+            ]);
           }
         } else {
           // No value was found without string splitting
@@ -791,6 +796,7 @@ export function useColumnMapping() {
             projects.find((item) => compareAlphanumeric(item.name, value));
           break;
         case "collectingEvent.collectors.displayName":
+        case "organism.determination.determiner.displayName":
         case "preparedBy.displayName":
         case "dcCreator.displayName":
           found =
@@ -897,6 +903,7 @@ export function useColumnMapping() {
         targetType = "project";
         break;
       case "collectingEvent.collectors.displayName":
+      case "organism.determination.determiner.displayName":
       case "preparedBy.displayName":
       case "dcCreator.displayName":
         options = persons.map((resource) => ({
