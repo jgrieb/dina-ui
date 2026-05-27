@@ -265,6 +265,11 @@ const FieldMappingConfig: FieldMappingConfigType = {
         remarks: { dataType: WorkbookDataTypeEnum.STRING },
         isTarget: { dataType: WorkbookDataTypeEnum.BOOLEAN },
         dwcVernacularName: { dataType: WorkbookDataTypeEnum.STRING },
+        managedAttributes: {
+          dataType: WorkbookDataTypeEnum.MANAGED_ATTRIBUTES,
+          endpoint: "collection-api/managed-attribute",
+          managedAttributeComponent: "ORGANISM"
+        },
         determination: {
           dataType: WorkbookDataTypeEnum.OBJECT_ARRAY,
           attributes: {
@@ -291,6 +296,11 @@ const FieldMappingConfig: FieldMappingConfigType = {
             scientificName: { dataType: WorkbookDataTypeEnum.STRING },
             scientificNameDetails: {
               dataType: WorkbookDataTypeEnum.CLASSIFICATION
+            },
+            managedAttributes: {
+              dataType: WorkbookDataTypeEnum.MANAGED_ATTRIBUTES,
+              endpoint: "collection-api/managed-attribute",
+              managedAttributeComponent: "DETERMINATION"
             }
           }
         }
