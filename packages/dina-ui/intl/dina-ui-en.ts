@@ -623,10 +623,12 @@ export const DINAUI_MESSAGES_ENGLISH = {
   field_vocabularyElementType_text_label: "Text",
   field_webpage: "Web Page",
   field_xmpMetadataDate: "Last Updated On",
+  field_xmpRightsOwner: "Owner",
   field_xmpMetadataDate_tooltip:
     "Date and time of when the record was last updated.",
   field_xmpRightsWebStatement: "License",
   field_isExternalResource: "Is External Resource",
+  field_identifiers: "Other Identifiers",
   fileTooBig: "File too big",
   filterAttribute: "Filter Attribute",
   filterByGroup: "Filter By Group",
@@ -992,6 +994,12 @@ export const DINAUI_MESSAGES_ENGLISH = {
   rolesPerGroup: "Roles Per Group",
   runWorkflow: "Run Workflow",
   save: "Save",
+  bulkEditingAllSamples: "Editing {total} samples",
+  bulkEditingSampleOf: "Editing sample {current} of {total}",
+  bulkEditingAllMetadata: "Editing {total} metadata records",
+  bulkEditingMetadataOf: "Editing metadata {current} of {total}",
+  bulkEditLoadingProgress: "Loading sample data... {loaded} of {total}",
+  bulkEditMetadataLoadingProgress: "Loading metadata... {loaded} of {total}",
   saveAll: "Save All",
   saveAndCopyToNext: "Save & Copy To Next",
   saveAndCopyToNextWarning:
@@ -1040,6 +1048,7 @@ export const DINAUI_MESSAGES_ENGLISH = {
   columnSelector_addNewColumn: "Add a new column:",
   columnSelector_selectManagedAttribute: "Select managed attribute:",
   columnSelector_selectClassification: "Select classification:",
+  columnSelector_selectIdentifier: "Select identifier:",
   columnSelector_addColumnButton: "Add Column",
   columnSelector_resetButton: "Reset Columns",
   field_columnFunction: "Functions",
@@ -1205,6 +1214,8 @@ export const DINAUI_MESSAGES_ENGLISH = {
     "Invalid Managed Attribute key: managed attribute key {key} not found.",
   workBookManagedAttributeKeysTargetKeyIsRequired:
     "Please select a Managed Attribute value",
+  workBookControlledVocabularyKeysTargetKeyIsRequired:
+    "Please select a Controlled Vocabulary value",
   workBookStorageUnitIsRequired:
     "Storage unit not provided. Must provide valid storage unit for well row and well column.",
   workbookGroupUploadTitle: "Upload Workbook",
@@ -1469,5 +1480,11 @@ export const DINAUI_MESSAGES_ENGLISH = {
   exportRequestSubmittedMessage:
     "Your export is being processed. You will receive a notification when it's ready to download.",
   resetView: "Reset View",
-  saveAsImage: "Save as Image"
+  saveAsImage: "Save as Image",
+  parentMaterialSampleDisabledTooltip:
+    "Material Sample can only have a single link to one of the following relationships: Parent Material Sample or a collecting event.",
+  managedAttributeCollectionTabAlertTitle:
+    "Collection managed attributes have been moved.",
+  managedAttributeCollectionTabAlertDescription:
+    "They are now located on the new {link} page."
 };

@@ -8,7 +8,6 @@ import {
   FieldHeader,
   FilterAttribute,
   ListPageLayout,
-  Operation,
   QueryPage,
   SimpleSearchFilterBuilder,
   stringArrayCell,
@@ -32,7 +31,6 @@ import { Footer, GroupSelectField, Head, Nav } from "../../../components";
 import { DinaMessage, useDinaIntl } from "../../../intl/dina-ui-intl";
 import { MaterialSample } from "../../../types/collection-api";
 import { MdOutlineLibraryAdd } from "react-icons/md";
-import { MATERIAL_SAMPLE_OTHER_IDENTIFERS_ID } from "../../../components/controlled-vocabulary/controlledVocabularyItemUtils";
 export const MATERIAL_SAMPLE_NON_EXPORTABLE_COLUMNS: string[] = [
   "selectColumn",
   "assemblages.",
@@ -177,7 +175,6 @@ export function SampleListLayout({
           .whereProvided("group", "EQ", filterForm.group)
           .build()
       }
-      useFiql={true}
       filterAttributes={MATERIAL_SAMPLE_FILTER_ATTRIBUTES}
       id="material-sample-list"
       queryTableProps={{
@@ -226,7 +223,7 @@ export const dynamicFieldMappingForMaterialSample: DynamicFieldsMappingConfig =
         label: "materialSampleManagedAttributes",
         component: "MATERIAL_SAMPLE",
         path: "data.attributes.managedAttributes",
-        apiEndpoint: "collection-api/managed-attribute"
+        apiEndpoint: "collection-api/controlled-vocabulary-item"
       },
       // Material Sample - Field Extensions
       {
@@ -242,7 +239,7 @@ export const dynamicFieldMappingForMaterialSample: DynamicFieldsMappingConfig =
         label: "otherIdentifiers",
         component: "MATERIAL_SAMPLE",
         path: "data.attributes.identifiers",
-        apiEndpoint: `collection-api/controlled-vocabulary-item?filter[controlledVocabulary.uuid][EQ]=${MATERIAL_SAMPLE_OTHER_IDENTIFERS_ID}&filter[dinaComponent][EQ]=MATERIAL_SAMPLE`
+        apiEndpoint: `collection-api/controlled-vocabulary-item`
       },
 
       // Preparation - Managed Attributes
@@ -251,7 +248,7 @@ export const dynamicFieldMappingForMaterialSample: DynamicFieldsMappingConfig =
         label: "preparationManagedAttributes",
         component: "PREPARATION",
         path: "data.attributes.preparationManagedAttributes",
-        apiEndpoint: "collection-api/managed-attribute"
+        apiEndpoint: "collection-api/controlled-vocabulary-item"
       },
 
       // Restrictions
@@ -281,10 +278,10 @@ export const dynamicFieldMappingForMaterialSample: DynamicFieldsMappingConfig =
         path: "included.attributes.managedAttributes",
         referencedBy: "assemblages",
         referencedType: "assemblage",
-        apiEndpoint: "collection-api/managed-attribute"
+        apiEndpoint: "collection-api/controlled-vocabulary-item"
       },
 
-      // Collecting Event
+      // Collecting Event Managed Attributes
       {
         type: "managedAttribute",
         label: "managedAttributes",
@@ -292,8 +289,10 @@ export const dynamicFieldMappingForMaterialSample: DynamicFieldsMappingConfig =
         path: "included.attributes.managedAttributes",
         referencedBy: "collectingEvent",
         referencedType: "collecting-event",
-        apiEndpoint: "collection-api/managed-attribute"
+        apiEndpoint: "collection-api/controlled-vocabulary-item"
       },
+
+      // Collecting Event Field Extensions
       {
         type: "fieldExtension",
         label: "fieldExtensions",
@@ -304,15 +303,26 @@ export const dynamicFieldMappingForMaterialSample: DynamicFieldsMappingConfig =
         apiEndpoint: "collection-api/extension"
       },
 
-      // Determination
+      // Organism Managed Attributes
+      {
+        type: "managedAttribute",
+        label: "managedAttributes",
+        component: "ORGANISM",
+        path: "included.attributes.managedAttributes",
+        referencedBy: "organism",
+        referencedType: "organism",
+        apiEndpoint: "collection-api/controlled-vocabulary-item"
+      },
+
+      // Determination Managed Attributes
       {
         type: "managedAttribute",
         label: "managedAttributes",
         component: "DETERMINATION",
         path: "included.attributes.determination.managedAttributes",
-        referencedBy: "organism",
+        referencedBy: "organism.determination",
         referencedType: "organism",
-        apiEndpoint: "collection-api/managed-attribute"
+        apiEndpoint: "collection-api/controlled-vocabulary-item"
       },
 
       // Attachment
@@ -331,7 +341,7 @@ export const dynamicFieldMappingForMaterialSample: DynamicFieldsMappingConfig =
         type: "managedAttribute",
         label: "materialSampleManagedAttributes",
         path: "included.attributes.managedAttributes",
-        apiEndpoint: "collection-api/managed-attribute",
+        apiEndpoint: "collection-api/controlled-vocabulary-item",
         component: "MATERIAL_SAMPLE",
         referencedBy: "parentMaterialSample",
         referencedType: "material-sample"
@@ -341,7 +351,7 @@ export const dynamicFieldMappingForMaterialSample: DynamicFieldsMappingConfig =
         type: "managedAttribute",
         label: "preparationManagedAttributes",
         path: "included.attributes.preparationManagedAttributes",
-        apiEndpoint: "collection-api/managed-attribute",
+        apiEndpoint: "collection-api/controlled-vocabulary-item",
         component: "PREPARATION",
         referencedBy: "parentMaterialSample",
         referencedType: "material-sample"
@@ -372,7 +382,7 @@ export const dynamicFieldMappingForMaterialSample: DynamicFieldsMappingConfig =
         label: "otherIdentifiers",
         component: "MATERIAL_SAMPLE",
         path: "included.attributes.identifiers",
-        apiEndpoint: `collection-api/controlled-vocabulary-item?filter[controlledVocabulary.uuid][EQ]=${MATERIAL_SAMPLE_OTHER_IDENTIFERS_ID}&filter[dinaComponent][EQ]=MATERIAL_SAMPLE`,
+        apiEndpoint: `collection-api/controlled-vocabulary-item`,
         referencedBy: "parentMaterialSample",
         referencedType: "material-sample"
       },
@@ -396,6 +406,7 @@ export const dynamicFieldMappingForMaterialSample: DynamicFieldsMappingConfig =
         referencedType: "collecting-event",
         apiEndpoint: "agent-api/person",
         optionLabel: "displayName",
+        optionDescription: "email",
         elasticSearchRelationshipPath:
           "included.relationships.collectors.data.id"
       } as RelationshipAutocompleteField
@@ -404,7 +415,7 @@ export const dynamicFieldMappingForMaterialSample: DynamicFieldsMappingConfig =
 
 export default function MaterialSampleListPage() {
   const { formatMessage } = useDinaIntl();
-  const { bulkGet, doOperations } = useApiClient();
+  const { bulkGet, bulkDeleteResources } = useApiClient();
 
   const handleBeforeMaterialSampleDelete = async (resourceIds: string[]) => {
     // Fetch the resources with their relationships BEFORE deletion
@@ -424,16 +435,14 @@ export default function MaterialSampleListPage() {
   ) => {
     // Delete resources linked to the deleted material samples
     if (materialSamples && materialSamples.length > 0) {
-      const deleteOperations: Operation[] = materialSamples
+      const storageUnitUsageIds = materialSamples
         .filter((materialSample) => !!materialSample?.storageUnitUsage?.id)
-        .map((materialSample) => ({
-          op: "DELETE",
-          path: `storage-unit-usage/${materialSample?.storageUnitUsage?.id}`
-        }));
+        .map((materialSample) => materialSample.storageUnitUsage!.id as string);
 
-      if (deleteOperations.length > 0) {
-        await doOperations(deleteOperations, {
-          apiBaseUrl: "/collection-api"
+      if (storageUnitUsageIds.length > 0) {
+        await bulkDeleteResources(storageUnitUsageIds, {
+          apiBaseUrl: "/collection-api",
+          resourceType: "storage-unit-usage"
         });
       }
     }

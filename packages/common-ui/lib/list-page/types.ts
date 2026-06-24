@@ -312,7 +312,7 @@ export interface DynamicField {
   /**
    * Endpoint where these dynamic fields can be retrieved to list.
    *
-   * Example: "collection-api/managed-attribute"
+   * Example: "collection-api/controlled-vocabulary-item"
    */
   apiEndpoint?: string;
 
@@ -341,6 +341,13 @@ export interface RelationshipAutocompleteField
    * Example: "displayName" for Person
    */
   optionLabel: string;
+
+  /**
+   * Optional secondary field on the related resource used to for
+   * disambiguation.
+   * Example: "email, or lastname" for Person
+   */
+  optionDescription?: string;
 
   /**
    * The path in elastic search to match the relationship UUID.

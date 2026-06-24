@@ -65,6 +65,7 @@ import { CitationsField } from "../citations/CitationsField";
 import { CollectionSelectSection } from "../CollectionSelectSection";
 import { ShowParentAttributesField } from "./ShowParentAttributesField";
 import { SaveAndCopyToNextSuccessAlert } from "../SaveAndCopyToNextSuccessAlert";
+import { ParentSelectSection } from "../ParentSelectSection";
 
 export interface VisibleManagedAttributesConfig {
   materialSample?: string[];
@@ -393,7 +394,7 @@ export function MaterialSampleForm({
             <div className="col-md-12">
               <ManagedAttributesEditor
                 valuesPath="managedAttributes"
-                managedAttributeApiPath="collection-api/managed-attribute"
+                managedAttributeApiPath="collection-api/controlled-vocabulary-item"
                 managedAttributeComponent="MATERIAL_SAMPLE"
                 fieldSetProps={{
                   id,
@@ -404,6 +405,7 @@ export function MaterialSampleForm({
                   visibleManagedAttributeKeys?.materialSample
                 }
                 disableClearButton={true}
+                isControlledVocabulary={true}
               />
             </div>
           </div>
@@ -492,6 +494,11 @@ export function MaterialSampleForm({
                 <div className="col-md-8">
                   <CollectionSelectSection resourcePath="collection-api/collection" />
                   <ProjectSelectSection resourcePath="collection-api/project" />
+                  <ParentSelectSection
+                    enableCollectingEvent={
+                      dataComponentState.enableCollectingEvent
+                    }
+                  />
                   <AssemblageSelectSection resourcePath="collection-api/assemblage" />
                   <NotPubliclyReleasableSection />
                   <TagsAndRestrictionsSection

@@ -1,7 +1,7 @@
 {
   "name": "dina-ui",
   "license": "MIT",
-  "version": "0.219.0",
+  "version": "0.222.0",
   "scripts": {
     "build": "node --require ./next.config.js ../../node_modules/.bin/next build",
     "dev": "next --turbopack",
@@ -14,7 +14,6 @@
     "blob": "0.1.0",
     "bootstrap": "5.1.3",
     "bytes": "^3.1.1",
-    "cleave.js": "^1.6.0",
     "common-ui": "link:../common-ui",
     "coordinate-parser": "^1.0.7",
     "dexie": "^3.2.4",
@@ -26,8 +25,6 @@
     "next": "15.5.15",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
-    "react-dnd": "^16.0.1",
-    "react-dnd-html5-backend": "^16.0.1",
     "react-dropzone-uploader": "^2.11.0",
     "react-switch": "^7.1.0",
     "react-tabs": "^6.1.0",

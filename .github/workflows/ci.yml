@@ -7,8 +7,8 @@ jobs:
       test-chunks: ${{ steps['set-test-chunks'].outputs['test-chunks'] }}
       test-chunk-ids: ${{ steps['set-test-chunk-ids'].outputs['test-chunk-ids'] }}
     steps:
-      - uses: actions/checkout@v3
-      - uses: actions/setup-node@v3
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
         with:
           node-version: '22'
           cache: 'yarn'
@@ -41,8 +41,8 @@ jobs:
       matrix:
         chunk: ${{ fromJson(needs.setup.outputs['test-chunk-ids']) }}
     steps:
-      - uses: actions/checkout@v3
-      - uses: actions/setup-node@v3
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
         with:
           node-version: '22'
           cache: 'yarn'
@@ -57,8 +57,8 @@ jobs:
     needs:
       - setup
     steps:
-      - uses: actions/checkout@v3
-      - uses: actions/setup-node@v3
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
         with:
           node-version: '22'
           cache: 'yarn'
@@ -66,6 +66,10 @@ jobs:
       - name: Install
         run: |
           yarn install
+
+      - name: Check for Typescript Errors
+        run: |
+          npx tsc --noEmit
 
       - name: Build UI project
         run: |
@@ -89,9 +93,9 @@ jobs:
 
   push:
     name: Build Docker Image and Push to DockerHub
-    needs: [build]
+    needs: [build, test-chunk]
     runs-on: ubuntu-latest
-    if: ${{ github.ref == 'refs/heads/master' }}
+    if: ${{ github.ref == 'refs/heads/master' && needs.test-chunk.result == 'success' }}
 
     steps:
       - name: Download artifacts from build job
@@ -125,10 +129,11 @@ jobs:
 
   build-docs:
     runs-on: ubuntu-latest
-    if: ${{ github.ref == 'refs/heads/master' }}
+    needs: [build, test-chunk]
+    if: ${{ github.ref == 'refs/heads/master' && needs.test-chunk.result == 'success' }}
     steps:
-      - uses: actions/checkout@v3
-      - uses: actions/setup-node@v3
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
         with:
           node-version: '22'
       - name: Building ascii docs

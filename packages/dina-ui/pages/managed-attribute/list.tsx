@@ -36,36 +36,34 @@ export default function ManagedAttributesListPage() {
       titleKey: "collectionListTitle",
       apiPath: "/collection-api/managed-attribute",
       prependLink: "/collection/managed-attribute",
-      componentSupport: true,
-      useFiql: true
+      componentSupport: true
     },
     {
       titleKey: "objectStoreTitle",
       apiPath: "/objectstore-api/managed-attribute",
       prependLink: "/object-store/managed-attribute",
-      componentSupport: false,
-      useFiql: true
+      componentSupport: false
     },
     {
       titleKey: "loanTransactionsSectionTitle",
       apiPath: "/loan-transaction-api/managed-attribute",
       prependLink: "/loan-transaction/managed-attribute",
-      componentSupport: false,
-      useFiql: true
+      componentSupport: false
     },
     {
       titleKey: "seqdbManagedAttributeTitle",
       apiPath: "/seqdb-api/managed-attribute",
       prependLink: "/seqdb/managed-attribute",
-      componentSupport: false,
-      useFiql: false
+      componentSupport: false
     }
   ] as const;
 
   // Create new button, generated for each tab.
   const buttonBar = (
     <div className="flex d-flex ms-auto">
-      <CreateButton entityLink={tabs[currentTab].prependLink} />
+      {currentTab !== 0 && (
+        <CreateButton entityLink={tabs[currentTab].prependLink} />
+      )}
     </div>
   );
 
@@ -83,19 +81,40 @@ export default function ManagedAttributesListPage() {
           ))}
         </TabList>
 
+        {currentTab === 0 && (
+          <div className="alert alert-warning mt-3" role="alert">
+            <h5>
+              <DinaMessage id="managedAttributeCollectionTabAlertTitle" />
+            </h5>
+            <DinaMessage
+              id="managedAttributeCollectionTabAlertDescription"
+              values={{
+                link: (
+                  <Link href="/controlled-vocabulary/list">
+                    <DinaMessage id="controlledVocabularyTitle" />
+                  </Link>
+                )
+              }}
+            />
+          </div>
+        )}
+
         {tabs.map((tab) => (
           <TabPanel key={tab.titleKey}>
-            <h3 className="mb-3">
-              <DinaMessage id={tab.titleKey as any} />
-            </h3>
+            {currentTab !== 0 && (
+              <>
+                <h3 className="mb-3">
+                  <DinaMessage id={tab.titleKey as any} />
+                </h3>
 
-            <GenericManagedAttributeListView
-              apiPath={tab.apiPath}
-              useFiql={tab.useFiql}
-              prependLink={tab.prependLink}
-              componentSupport={tab.componentSupport}
-              titleKey={tab.titleKey}
-            />
+                <GenericManagedAttributeListView
+                  apiPath={tab.apiPath}
+                  prependLink={tab.prependLink}
+                  componentSupport={tab.componentSupport}
+                  titleKey={tab.titleKey}
+                />
+              </>
+            )}
           </TabPanel>
         ))}
       </Tabs>
@@ -105,14 +124,9 @@ export default function ManagedAttributesListPage() {
 
 interface GenericManagedAttributeListViewProps {
   /**
-   * Example: "/collection-api/managed-attribute"
+   * Example: "/collection-api/controlled-vocabulary-item"
    */
   apiPath: string;
-
-  /**
-   * If FIQL is used for filtering.
-   */
-  useFiql: boolean;
 
   /**
    * Example: "/collection/managed-attribute" which will add /view?id=ID to the link
@@ -132,7 +146,6 @@ interface GenericManagedAttributeListViewProps {
 
 function GenericManagedAttributeListView({
   apiPath,
-  useFiql,
   prependLink,
   componentSupport,
   titleKey
@@ -223,7 +236,6 @@ function GenericManagedAttributeListView({
         columns: MANAGED_ATTRIBUTE_COLUMNS,
         path: apiPath
       }}
-      useFiql={useFiql}
     />
   );
 }

@@ -13,6 +13,30 @@ import { BulkNavigatorTab } from "../BulkEditNavigator";
 import { useBulkEditTab } from "../useBulkEditTab";
 import { fireEvent, waitFor } from "@testing-library/react";
 import "@testing-library/jest-dom";
+import { useSearchWsCustomQuery } from "../../../../common-ui/lib/search/useSearchWsCustomQuery";
+
+/**
+ * Reusable mock block for tests that render components using `useSearchWsCustomQuery`.
+ * Copy this block into other test files to avoid real search-ws API calls.
+ */
+jest.mock("../../../../common-ui/lib/search/useSearchWsCustomQuery", () => {
+  const actual = jest.requireActual(
+    "../../../../common-ui/lib/search/useSearchWsCustomQuery"
+  );
+  return {
+    ...actual,
+    useSearchWsCustomQuery: jest
+      .fn()
+      .mockReturnValue({ loading: false, response: { data: [] } })
+  };
+});
+
+function mockUseSearchWsResults(data: any[] = []) {
+  (useSearchWsCustomQuery as jest.Mock).mockReturnValue({
+    loading: false,
+    response: { data }
+  });
+}
 
 const mockSubmitOverride = jest.fn();
 
@@ -65,6 +89,25 @@ function BulkEditTab({ baseSample }: BulkEditTabProps) {
     <div>
       {bulkEditTab.content(true)}
       <button
+        className="set-parent"
+        type="button"
+        onClick={() => {
+          const formik = bulkEditFormRef.current;
+          if (formik) {
+            formik.setValues({
+              ...formik.values,
+              parentMaterialSample: {
+                id: "parent-1",
+                type: "material-sample",
+                materialSampleName: "Parent Sample"
+              }
+            });
+          }
+        }}
+      >
+        Set Parent
+      </button>
+      <button
         className="get-overrides"
         type="button"
         onClick={async () => {
@@ -83,13 +126,13 @@ function BulkEditTab({ baseSample }: BulkEditTabProps) {
 
 const mockGet = jest.fn<any, any>(async (path, params) => {
   switch (path) {
-    case "collection-api/managed-attribute":
+    case "collection-api/controlled-vocabulary-item":
       if (params?.filter?.key?.EQ === "a") {
         return {
           data: [
             {
               id: "1",
-              type: "managed-attribute",
+              type: "controlled-vocabulary-item",
               vocabularyElementType: "STRING",
               managedAttributeComponent: "MATERIAL_SAMPLE",
               key: "a",
@@ -103,7 +146,7 @@ const mockGet = jest.fn<any, any>(async (path, params) => {
           data: [
             {
               id: "2",
-              type: "managed-attribute",
+              type: "controlled-vocabulary-item",
               vocabularyElementType: "STRING",
               managedAttributeComponent: "MATERIAL_SAMPLE",
               key: "b",
@@ -117,7 +160,7 @@ const mockGet = jest.fn<any, any>(async (path, params) => {
           data: [
             {
               id: "3",
-              type: "managed-attribute",
+              type: "controlled-vocabulary-item",
               vocabularyElementType: "STRING",
               managedAttributeComponent: "MATERIAL_SAMPLE",
               key: "c",
@@ -131,7 +174,7 @@ const mockGet = jest.fn<any, any>(async (path, params) => {
         data: [
           {
             id: "1",
-            type: "managed-attribute",
+            type: "controlled-vocabulary-item",
             vocabularyElementType: "STRING",
             managedAttributeComponent: "MATERIAL_SAMPLE",
             key: "a",
@@ -139,7 +182,7 @@ const mockGet = jest.fn<any, any>(async (path, params) => {
           },
           {
             id: "2",
-            type: "managed-attribute",
+            type: "controlled-vocabulary-item",
             vocabularyElementType: "STRING",
             managedAttributeComponent: "MATERIAL_SAMPLE",
             key: "b",
@@ -147,7 +190,7 @@ const mockGet = jest.fn<any, any>(async (path, params) => {
           },
           {
             id: "3",
-            type: "managed-attribute",
+            type: "controlled-vocabulary-item",
             vocabularyElementType: "STRING",
             managedAttributeComponent: "MATERIAL_SAMPLE",
             key: "c",
@@ -192,7 +235,32 @@ const testCtx = {
 };
 
 describe("Material sample bulk edit tab", () => {
-  beforeEach(jest.clearAllMocks);
+  beforeEach(() => {
+    jest.clearAllMocks();
+    mockUseSearchWsResults();
+  });
+
+  it("assigns a new parent sample via bulk edit", async () => {
+    const wrapper = mountWithAppContext(<BulkEditTab />, testCtx);
+
+    await waitFor(() =>
+      expect(
+        wrapper.getByRole("button", { name: /get overrides/i })
+      ).toBeInTheDocument()
+    );
+
+    // Set the parent on the bulk edit form programmatically
+    fireEvent.click(wrapper.getByRole("button", { name: /set parent/i }));
+
+    // Request overrides and assert parent is present
+    fireEvent.click(wrapper.getByRole("button", { name: /get overrides/i }));
+
+    await waitFor(() => expect(mockSubmitOverride).toHaveBeenCalled());
+
+    const overridden = mockSubmitOverride.mock.calls[0][0];
+    expect(overridden.parentMaterialSample).toBeDefined();
+    expect(overridden.parentMaterialSample.id).toEqual("parent-1");
+  });
 
   it("Without changing any fields, overrides nothing", async () => {
     const wrapper = mountWithAppContext(<BulkEditTab />, testCtx);

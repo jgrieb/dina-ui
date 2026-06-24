@@ -152,6 +152,8 @@ const SYNONYMS_MAP_BY_TYPE = new Map<string, Map<string, string>>([
       ["assemblages", "assemblages.name"],
       ["collectors", "collectingEvent.collectors.displayName"],
       ["collector", "collectingEvent.collectors.displayName"],
+      ["determiners", "organism.determination.determiner.displayName"],
+      ["determiner", "organism.determination.determiner.displayName"],
       ["attachment", "attachment.name"],
       ["attachments", "attachment.name"],
       ["hostorganism", "hostOrganism.name"],
@@ -253,7 +255,13 @@ export function generateWorkbookFieldOptions(
 
   // const newFieldOptions: { label: string; value: string }[] = [];
   Object.keys(flattenedConfig).forEach((fieldPath) => {
-    if (fieldPath === "relationshipConfig") {
+    if (
+      fieldPath === "relationshipConfig" ||
+      fieldPath.endsWith(".relationshipConfig")
+    ) {
+      return;
+    }
+    if (fieldPath === "filter" || fieldPath.endsWith(".filter")) {
       return;
     }
     const config = flattenedConfig[fieldPath];
@@ -359,17 +367,39 @@ export function getFlattenedConfig(
   if (_.has(mappingConfig, entityName)) {
     const flattened = flattenObject(mappingConfig[entityName]);
     for (const key of Object.keys(flattened)) {
-      const lastPos = key.lastIndexOf(".");
-      if (lastPos > -1) {
-        const path = key.substring(0, lastPos);
-        if (!path.endsWith(".relationshipConfig")) {
+      let path = key;
+      while (true) {
+        const lastPos = path.lastIndexOf(".");
+        if (lastPos > -1) {
+          const candidate = path.substring(0, lastPos);
+          if (candidate.endsWith(".relationshipConfig")) {
+            path = candidate;
+            continue;
+          }
+          // Skip filter paths from controlled vocabulary / managed attribute config
+          if (candidate.endsWith(".filter") || candidate === "filter") {
+            path = candidate;
+            continue;
+          }
+          const value = _.get(mappingConfig, entityName + "." + candidate);
+          if (value !== undefined) {
+            config[candidate.replaceAll(".attributes.", ".")] = value;
+            break;
+          }
+          path = candidate;
+          continue;
+        } else {
+          // No dot left, try the full path as a top-level property.
+          // Skip if path itself is "filter"
+          if (path === "filter") {
+            break;
+          }
           const value = _.get(mappingConfig, entityName + "." + path);
-          config[path.replaceAll(".attributes.", ".")] = value;
+          if (value !== undefined) {
+            config[path.replaceAll(".attributes.", ".")] = value;
+          }
+          break;
         }
-      } else {
-        const path = key;
-        const value = _.get(mappingConfig, entityName + "." + path);
-        config[path] = value;
       }
     }
   }
@@ -799,49 +829,6 @@ export function convertBooleanArray(value: any, fieldName?: string): boolean[] {
     .map((item) => _.trim(item))
     .filter((item) => item !== "")
     .map((item) => convertBoolean(item.trim(), fieldName)) as boolean[];
-}
-
-/**
- * convert string into a map
- * @param value Map type of string.
- *
- * Here is an example of the data:
- * "key1:value1, key2:value2, key3: value3"
- *
- * If a value contains a comman (,) or a colon (:), please wrap the value with double quote. For example:
- * 'key1: "abc,def:123", key2: value2'
- *
- * Any item in the value string has no key or value will be filtered out.
- *
- */
-export function convertMap(
-  value: any,
-  _fieldName?: string
-): { [key: string]: any } {
-  const regx = /:(?=(?:[^\"]*\"[^\"]*\")*[^\"]*$)/;
-  const items = value
-    .split(/,(?=(?:[^\"]*\"[^\"]*\")*[^\"]*$)/)
-    .map((str) => _.trim(str));
-  const map = {} as { [key: string]: any };
-  for (const keyValue of items) {
-    if (keyValue) {
-      const arr = keyValue
-        .split(regx)
-        .map((str) => _.trim(_.trim(str, '"').replace('"', "")));
-      if (arr && arr.length === 2 && arr[0] !== "" && arr[1] !== "") {
-        const key = arr[0];
-        const strVal = arr[1];
-        if (isBoolean(strVal)) {
-          map[key] = convertBoolean(strVal);
-        } else if (isNumber(strVal)) {
-          map[key] = convertNumber(strVal);
-        } else {
-          map[key] = strVal;
-        }
-      }
-    }
-  }
-  return map;
 }
 
 /**
@@ -1336,5 +1323,6 @@ export function trimSpace(workbookData: WorkbookJSON) {
 export const MULTI_SELECT_FIELDS = new Set([
   "preparedBy.displayName",
   "collectingEvent.collectors.displayName",
+  "organism.determination.determiner.displayName",
   "projects.name"
 ]);
