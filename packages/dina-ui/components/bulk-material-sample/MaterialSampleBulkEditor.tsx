@@ -2,7 +2,6 @@ import {
   bulkEditAllManagedAttributes,
   BulkEditTabContextI,
   ButtonBar,
-  ClearType,
   DinaForm,
   DoOperationsError,
   FormikButton,
@@ -11,6 +10,7 @@ import {
   OperationError,
   ResourceWithHooks,
   SaveArgs,
+  suppressUnsavedWarning,
   useApiClient,
   withoutBlankFields
 } from "common-ui";
@@ -38,6 +38,10 @@ import {
   CollectingEvent,
   FormTemplate
 } from "packages/dina-ui/types/collection-api";
+import {
+  applyAppendedFields,
+  applyClearedFields
+} from "../bulk-edit/BulkEditUtils";
 
 export interface MaterialSampleBulkEditorProps {
   samples: InputResource<MaterialSample>[];
@@ -96,12 +100,13 @@ export function MaterialSampleBulkEditor({
   );
 
   const [initialized, setInitialized] = useState(false);
-  const { bulkEditTab, clearedFields, deletedFields } = useBulkEditTab({
-    resourceHooks: sampleHooks,
-    hideBulkEditTab: !initialized,
-    resourceForm: materialSampleForm,
-    bulkEditFormRef
-  });
+  const { bulkEditTab, clearedFields, deletedFields, appendFields } =
+    useBulkEditTab({
+      resourceHooks: sampleHooks,
+      hideBulkEditTab: !initialized,
+      resourceForm: materialSampleForm,
+      bulkEditFormRef
+    });
 
   function sampleBulkOverrider() {
     /** Sample input including blank/empty fields. */
@@ -120,7 +125,12 @@ export function MaterialSampleBulkEditor({
   const { saveAll, submissionError } = useBulkSampleSave({
     onSaved,
     samplePreProcessor: sampleBulkOverrider,
-    bulkEditCtx: { resourceHooks: sampleHooks, bulkEditFormRef, clearedFields },
+    bulkEditCtx: {
+      resourceHooks: sampleHooks,
+      bulkEditFormRef,
+      clearedFields,
+      appendFields
+    },
     bulkEditCollectingEvtFormRef,
     bulkEditSampleHook
   });
@@ -257,6 +267,7 @@ export function useRefHookFormProps(
     materialSample: materialSampleInitialValues ?? initialValues,
     collectingEventInitialValues,
     showChangedIndicatorsInNestedForms: true,
+    disableNestedFormEdits: true,
     colEventFormRef: bulkEditCollectingEvtFormRef
   });
 
@@ -456,7 +467,8 @@ function useBulkSampleSave({
   const {
     bulkEditFormRef,
     resourceHooks: sampleHooks,
-    clearedFields
+    clearedFields,
+    appendFields
   } = bulkEditCtx;
 
   async function saveAll() {
@@ -502,6 +514,17 @@ function useBulkSampleSave({
 
           submittedValuesList.push(processedSample);
 
+          // Determine if the collecting event override is being set on a bulk edit or individual tab.
+          const getOverrideCollectingEventUUID = () => {
+            if (bulkEditSampleHook.overrideCollectingEvent) {
+              return bulkEditCollectingEventRefPermanent?.current?.values?.id;
+            }
+            if (saveHook?.overrideCollectingEvent) {
+              return formik?.values?.collectingEvent?.id;
+            }
+            return undefined;
+          };
+
           const saveOp = await saveHook.prepareSampleSaveOperation({
             submittedValues: formik.values,
             preProcessSample: async (original) => {
@@ -525,18 +548,16 @@ function useBulkSampleSave({
             collectingEventRefExternal: bulkEditSampleHook.dataComponentState
               .enableCollectingEvent
               ? bulkEditCollectingEventRefPermanent
-              : undefined
+              : undefined,
+            unlinkCollectingEvent:
+              bulkEditSampleHook.unlinkCollectingEvent ||
+              saveHook.unlinkCollectingEvent,
+            overrideCollectingEventUUID: getOverrideCollectingEventUUID()
           });
 
-          if (clearedFields?.size) {
-            for (const [fieldName, clearType] of clearedFields) {
-              _.set(
-                saveOp.resource as any,
-                fieldName,
-                clearType === ClearType.EmptyString ? "" : null
-              );
-            }
-          }
+          // Handle Bulk Editor special functionality
+          applyClearedFields(saveOp.resource, clearedFields);
+          applyAppendedFields(saveOp.resource, resource, appendFields);
 
           saveOperations.push(saveOp);
         } catch (error: unknown) {
@@ -658,6 +679,15 @@ function useBulkSampleSave({
           ),
           assocErrors
         );
+      }
+      // Suppress unsaved data warning before navigating
+      suppressUnsavedWarning();
+      // Reset form dirty states for good measure
+      bulkEditFormRef.current?.resetForm({
+        values: bulkEditFormRef.current.values
+      });
+      for (const { formRef } of sampleHooks) {
+        formRef.current?.resetForm({ values: formRef.current.values });
       }
 
       await onSaved(resultSamples);

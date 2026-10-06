@@ -1,5 +1,10 @@
-import { mountWithAppContext, waitForLoadingToDisappear } from "common-ui";
-import { fireEvent, waitFor } from "@testing-library/react";
+import {
+  clearAndType,
+  mountWithAppContext,
+  OBJECT_STORE_MAPPING,
+  waitForLoadingToDisappear
+} from "common-ui";
+import { waitFor } from "@testing-library/react";
 import "@testing-library/jest-dom";
 import userEvent from "@testing-library/user-event";
 import { useState, useEffect } from "react";
@@ -36,50 +41,6 @@ import {
 } from "../../../../types/seqdb-api/resources/molecular-analysis/MolecularAnalysisRunItem";
 import { PersistedResource } from "kitsu";
 
-const MOCK_INDEX_MAPPING_RESP = {
-  data: {
-    indexName: "dina_object_store_index",
-    attributes: [
-      {
-        name: "originalFilename",
-        type: "text",
-        path: "data.attributes"
-      },
-      {
-        name: "bucket",
-        type: "text",
-        path: "data.attributes"
-      },
-      {
-        name: "createdBy",
-        type: "text",
-        path: "data.attributes"
-      },
-      {
-        name: "acCaption",
-        type: "text",
-        path: "data.attributes"
-      },
-      {
-        name: "id",
-        type: "text",
-        path: "data"
-      },
-      {
-        name: "type",
-        type: "text",
-        path: "data"
-      },
-      {
-        name: "createdOn",
-        type: "date",
-        path: "data.attributes"
-      }
-    ],
-    relationships: []
-  }
-};
-
 const TEST_ELASTIC_SEARCH_RESPONSE = {
   data: {
     hits: {
@@ -104,7 +65,7 @@ const TEST_ELASTIC_SEARCH_RESPONSE = {
 const mockGet = jest.fn<any, any>(async (path, params) => {
   switch (path) {
     case "search-api/search-ws/mapping":
-      return MOCK_INDEX_MAPPING_RESP;
+      return OBJECT_STORE_MAPPING;
     case "/seqdb-api/generic-molecular-analysis-item": {
       const uuid = params.filter?.["genericMolecularAnalysis.uuid"]?.EQ;
       switch (uuid) {
@@ -827,23 +788,17 @@ describe("Molecular Analysis Workflow - Step 4 - Molecular Analysis Run Step", (
     });
 
     // Change the sequencing run name to something different.
-    await userEvent.clear(wrapper.getAllByRole("textbox")[0]);
-    await userEvent.type(
-      wrapper.getAllByRole("textbox")[0],
-      "Updated run name"
-    );
+    await clearAndType(wrapper.getAllByRole("textbox")[0], "Updated run name");
 
     // Add a new run name.
-    await userEvent.clear(wrapper.getAllByRole("textbox")[1]);
-    await userEvent.type(
+    await clearAndType(
       wrapper.getAllByRole("textbox")[1],
       "Update run item name 1"
     );
     await userEvent.type(wrapper.getAllByRole("textbox")[2], "Add a new one");
 
     // Edit Quality Control 1
-    await userEvent.clear(wrapper.getAllByRole("textbox")[4]);
-    await userEvent.type(
+    await clearAndType(
       wrapper.getAllByRole("textbox")[4],
       "Updated Quality Control"
     );
@@ -1241,11 +1196,11 @@ describe("Molecular Analysis Workflow - Step 4 - Molecular Analysis Run Step", (
 
     // Remove all the attachments for the quality control
     await userEvent.click(
-      wrapper.getAllByRole("button", { name: /detach/i })[0]
+      wrapper.getAllByRole("button", { name: /unlink/i })[0]
     );
     await waitForLoadingToDisappear();
     await userEvent.click(
-      wrapper.getAllByRole("button", { name: /detach/i })[0]
+      wrapper.getAllByRole("button", { name: /unlink/i })[0]
     );
 
     // Click the save button.
@@ -1540,7 +1495,7 @@ describe("Molecular Analysis Workflow - Step 4 - Molecular Analysis Run Step", (
     expect(wrapper.queryByRole("alert")).toBeInTheDocument();
   });
 
-  describe("Data Paste Zone Functionaltiy", () => {
+  describe("Data Paste Zone Functionality", () => {
     it("Paste quality control functionality with both name and type", async () => {
       const wrapper = mountWithAppContext(<TestComponent />, testCtx);
 
@@ -1559,21 +1514,20 @@ describe("Molecular Analysis Workflow - Step 4 - Molecular Analysis Run Step", (
       // Simulate pasting data into the data paste zone as an excel paste (2 columns)
       const pasteData =
         "Quality Control Name 1\tReserpine Standard\nQuality Control Name 2\tACN Blank";
-      fireEvent.paste(dataPasteZone, {
-        clipboardData: {
-          getData: () => pasteData
-        }
-      });
+      await userEvent.click(dataPasteZone);
+      await userEvent.paste(pasteData);
 
       // Items should be populated in:
-      expect(
-        wrapper.getByDisplayValue(/quality control name 1/i)
-      ).toBeInTheDocument();
-      expect(
-        wrapper.getByDisplayValue(/quality control name 2/i)
-      ).toBeInTheDocument();
-      expect(wrapper.getByText(/reserpine standard/i)).toBeInTheDocument();
-      expect(wrapper.getByText(/acn blank/i)).toBeInTheDocument();
+      await waitFor(() => {
+        expect(wrapper.getByTestId("qualityControl-name-0")).toHaveValue(
+          "Quality Control Name 1"
+        );
+        expect(wrapper.getByTestId("qualityControl-name-1")).toHaveValue(
+          "Quality Control Name 2"
+        );
+        expect(wrapper.getByText(/reserpine standard/i)).toBeInTheDocument();
+        expect(wrapper.getByText(/acn blank/i)).toBeInTheDocument();
+      });
     });
 
     it("Paste quality control functionality with only name", async () => {
@@ -1593,19 +1547,18 @@ describe("Molecular Analysis Workflow - Step 4 - Molecular Analysis Run Step", (
 
       // Simulate pasting data into the data paste zone as an excel paste (2 columns)
       const pasteData = "Quality Control Name 1\nQuality Control Name 2";
-      fireEvent.paste(dataPasteZone, {
-        clipboardData: {
-          getData: () => pasteData
-        }
-      });
+      await userEvent.click(dataPasteZone);
+      await userEvent.paste(pasteData);
 
       // Items should be populated in:
-      expect(
-        wrapper.getByDisplayValue(/quality control name 1/i)
-      ).toBeInTheDocument();
-      expect(
-        wrapper.getByDisplayValue(/quality control name 2/i)
-      ).toBeInTheDocument();
+      await waitFor(() => {
+        expect(wrapper.getByTestId("qualityControl-name-0")).toHaveValue(
+          "Quality Control Name 1"
+        );
+        expect(wrapper.getByTestId("qualityControl-name-1")).toHaveValue(
+          "Quality Control Name 2"
+        );
+      });
     });
 
     it("Paste run names functionality", async () => {
@@ -1622,30 +1575,21 @@ describe("Molecular Analysis Workflow - Step 4 - Molecular Analysis Run Step", (
       const dataPasteZone = wrapper.getAllByPlaceholderText(
         "Paste your data here (e.g., copied from Excel)"
       )[0];
-      await waitFor(() => expect(dataPasteZone).toBeInTheDocument());
 
       // Simulate pasting data into the data paste zone as an excel paste (2 columns)
       const pasteData = "Run Item Name 1\nRun Item Name 2";
-      fireEvent.paste(dataPasteZone, {
-        clipboardData: {
-          getData: (type: string) => {
-            // Ensure your component asks for the correct type, usually "text/plain"
-            if (type === "text/plain") {
-              return pasteData;
-            }
-            return "";
-          }
-        }
-      });
-      fireEvent.change(dataPasteZone, { target: { value: pasteData } });
+      await userEvent.click(dataPasteZone);
+      await userEvent.paste(pasteData);
 
       // Items should be populated in:
+      // Exact-string matches so the paste zone textarea (which now holds the
+      // whole pasted text) is not matched, only the run item name inputs.
       await waitFor(() => {
         expect(
-          wrapper.getAllByDisplayValue(/run item name 1/i)[0]
+          wrapper.getByDisplayValue("Run Item Name 1")
         ).toBeInTheDocument();
         expect(
-          wrapper.getAllByDisplayValue(/run item name 2/i)[0]
+          wrapper.getByDisplayValue("Run Item Name 2")
         ).toBeInTheDocument();
       });
     });

@@ -11,7 +11,7 @@ import { deserialise, error as kitsuError } from "kitsu-core";
 import _ from "lodash";
 import React, { PropsWithChildren, useContext, useMemo } from "react";
 import { v4 as uuidv4 } from "uuid";
-import { OperationsResponse } from "..";
+import { deserialize, OperationsResponse } from "..";
 import { serialize } from "../util/serialize";
 import {
   normalizeJsonApiPointer,
@@ -187,7 +187,6 @@ export class ApiClientImpl implements ApiClientI {
   constructor(private cfg: ApiClientConfig = {}) {
     this.apiClient = new CustomDinaKitsu({
       baseURL: cfg.baseURL ?? "/api",
-      headers: { "Crnk-Compact": "true" },
       pluralize: false,
       resourceCase: "none"
     });
@@ -250,16 +249,18 @@ export class ApiClientImpl implements ApiClientI {
       const url = `${apiBaseUrl}/${operation.path}`;
       const headers = {
         Accept: "application/vnd.api+json",
-        "Content-Type": "application/vnd.api+json",
-        "Crnk-Compact": "true"
+        "Content-Type": "application/vnd.api+json"
       };
       try {
         switch (operation.op.toUpperCase()) {
           case "GET":
             const getResponse = await axios.get(url, { headers });
+            const deserializedGet = getResponse?.data
+              ? await deserialize(getResponse.data)
+              : undefined;
             responses = [
               {
-                data: getResponse?.data?.data,
+                data: deserializedGet ?? getResponse?.data?.data,
                 included: getResponse?.data?.included,
                 status: getResponse?.status
               }
@@ -392,7 +393,7 @@ export class ApiClientImpl implements ApiClientI {
               optfields,
               returnNullForMissingResource
             });
-            responses = getResponse.data.data.map((response) => ({
+            responses = getResponse.data.map((response) => ({
               data: response,
               included: getResponse.data.included,
               status: response ? getResponse.status : 404
@@ -429,7 +430,7 @@ export class ApiClientImpl implements ApiClientI {
               apiBaseUrl,
               resourceType
             });
-            responses = postResponse.data.data.map((response) => ({
+            responses = postResponse.data.map((response) => ({
               data: response,
               included: postResponse.data.included,
               status: response ? postResponse.status : 404
@@ -451,7 +452,7 @@ export class ApiClientImpl implements ApiClientI {
               }
             );
 
-            responses = patchResponse.data.data.map((response) => ({
+            responses = patchResponse.data.map((response) => ({
               data: response,
               included: patchResponse.data.included,
               status: response ? patchResponse.status : 404
@@ -666,28 +667,24 @@ export class ApiClientImpl implements ApiClientI {
     const newResponseData: any[] = [];
 
     // Deserialize the response data.
-    (response as AxiosResponse).data = deserialise(
+    (response as AxiosResponse).data = await deserialize(
       (response as AxiosResponse).data
     );
 
-    // If there are missing IDs, we need to fill in the gaps with nulls.
-    if (missingIds.length != 0) {
+    // If there are missing IDs, fill in the gaps with nulls.
+    if (missingIds.length !== 0) {
       for (const id of originalIds) {
         if (missingIds.includes(id)) {
           newResponseData.push(null);
         } else {
-          newResponseData.push(response?.data.data[responseCounter]);
+          newResponseData.push(response?.data[responseCounter]);
           responseCounter++;
         }
       }
 
-      (response as AxiosResponse).data.data = newResponseData;
-      return response;
+      (response as AxiosResponse).data = newResponseData;
     }
 
-    (response as AxiosResponse).data = deserialise(
-      (response as AxiosResponse).data
-    );
     return response;
   }
 
@@ -718,7 +715,7 @@ export class ApiClientImpl implements ApiClientI {
         }
       }
     );
-    response.data = deserialise(response.data);
+    response.data = await deserialize(response.data);
     return response;
   }
 
@@ -749,7 +746,7 @@ export class ApiClientImpl implements ApiClientI {
         }
       }
     );
-    response.data = deserialise(response.data);
+    response.data = await deserialize(response.data);
     return response;
   }
 
@@ -820,7 +817,9 @@ export class ApiClientImpl implements ApiClientI {
     const resources: (TReturnNull extends true
       ? PersistedResource<T> | null
       : PersistedResource<T>)[] = (
-      await Promise.all(responses.map(deserialise))
+      await Promise.all(
+        responses.map(async (response) => await deserialise(response))
+      )
     ).map((res) => res.data);
 
     for (const joinSpec of joinSpecs) {
@@ -991,6 +990,7 @@ export class CustomDinaKitsu extends Kitsu {
         timeout
       });
 
+      const rawData = JSON.parse(JSON.stringify(data));
       const deserialized = await deserialise(data);
 
       // Get the list of requested includes from both params and the path query string,
@@ -1010,33 +1010,92 @@ export class CustomDinaKitsu extends Kitsu {
         ? deserialized.data
         : [deserialized.data];
 
-      const rawItems = Array.isArray(data?.data) ? data.data : [data?.data];
+      const rawItems = Array.isArray(rawData?.data)
+        ? rawData.data
+        : [rawData?.data];
+
+      // Helper to safely merge raw stubs (preserves 'uuid') with Kitsu resolved data
+      const mergeRelationship = (raw: any, resolved: any) => {
+        if (!raw) return resolved;
+        if (!resolved) return raw;
+
+        if (Array.isArray(raw) && Array.isArray(resolved)) {
+          return raw.map((r, i) => {
+            const res = resolved[i];
+            return res && typeof res === "object" ? { ...r, ...res } : r;
+          });
+        }
+
+        if (typeof raw === "object" && typeof resolved === "object") {
+          return { ...raw, ...resolved };
+        }
+
+        return resolved;
+      };
 
       for (let i = 0; i < items.length; i++) {
         const item = items[i];
         const rawRelationships = rawItems[i]?.relationships ?? {};
 
+        // First, handle requested includes
         for (const key of requestedIncludes) {
-          // Already resolved at top level, skip.
-          // But don't skip empty arrays - they may be unresolved relationship stubs
-          // from a different API that couldn't be included (e.g. collectors from agent-api)
           const currentValue = item[key];
-          const isEmptyArray =
-            Array.isArray(currentValue) && currentValue.length === 0;
-          if (currentValue !== undefined && !isEmptyArray) continue;
+          const rawRelData = rawRelationships[key]?.data;
 
-          const relData = rawRelationships[key]?.data;
-          if (!relData) continue;
-
-          // Promote stub(s) to top level
-          if (Array.isArray(relData)) {
-            item[key] = relData.map((r: any) => ({
-              ...r,
-              id: r.id,
-              type: r.type
-            }));
+          // Check if Kitsu 11.1.0 wrapped this relationship in {data: {...}}
+          if (
+            currentValue &&
+            typeof currentValue === "object" &&
+            "data" in currentValue &&
+            !Array.isArray(currentValue)
+          ) {
+            if (rawRelData === null || currentValue.data === null) {
+              item[key] = null;
+            } else if (rawRelData !== undefined) {
+              // MERGE raw stub with resolved data so we keep both 'uuid' and included attributes
+              item[key] = mergeRelationship(rawRelData, currentValue.data);
+            } else {
+              item[key] = currentValue.data;
+            }
+          }
+          // If Kitsu didn't resolve it (or left an empty array because of missing ids)
+          else if (
+            currentValue === undefined ||
+            (Array.isArray(currentValue) && currentValue.length === 0)
+          ) {
+            if (rawRelData !== undefined) {
+              // Direct assignment for unresolved stubs
+              item[key] = rawRelData;
+            }
           } else {
-            item[key] = { ...relData, id: relData.id, type: relData.type };
+            // If it's already unwrapped, but we still have raw data to merge
+            if (rawRelData !== undefined) {
+              item[key] = mergeRelationship(rawRelData, currentValue);
+            }
+          }
+        }
+
+        // Remove any relationships that were NOT requested in includes
+        // (Kitsu 11.1.0 promotes all relationships, but we only want requested ones)
+        for (const key in item) {
+          if (
+            key === "id" ||
+            key === "type" ||
+            key === "relationships" ||
+            key === "links" ||
+            key === "meta"
+          ) {
+            continue;
+          }
+          const value = item[key];
+          // Check if this looks like an unwanted promoted relationship (still wrapped in {data: {...}})
+          if (
+            value &&
+            typeof value === "object" &&
+            "data" in value &&
+            !requestedIncludes.includes(key)
+          ) {
+            delete item[key];
           }
         }
 

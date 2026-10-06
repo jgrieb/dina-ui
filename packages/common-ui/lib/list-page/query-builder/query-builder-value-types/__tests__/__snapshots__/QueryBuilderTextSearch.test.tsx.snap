@@ -23,12 +23,16 @@ exports[`QueryBuilderTextSearch QueryBuilderTextSearch Component Display field i
       <div
         class="error-viewer"
       />
-      <input
-        class="form-control"
-        placeholder="Enter text search value..."
-        type="text"
-        value="test"
-      />
+      <div
+        class="d-flex flex-column gap-1"
+      >
+        <input
+          class="form-control"
+          placeholder="Enter text search value..."
+          type="text"
+          value="test"
+        />
+      </div>
     </form>
   </div>
 </DocumentFragment>
@@ -43,12 +47,16 @@ exports[`QueryBuilderTextSearch QueryBuilderTextSearch Component Display field i
       <div
         class="error-viewer"
       />
-      <input
-        class="form-control"
-        placeholder="Enter comma-separated values..."
-        type="text"
-        value="test1, test2, test3"
-      />
+      <div
+        class="d-flex flex-column gap-1"
+      >
+        <input
+          class="form-control"
+          placeholder="Enter comma-separated values..."
+          type="text"
+          value="test1, test2, test3"
+        />
+      </div>
     </form>
   </div>
 </DocumentFragment>
@@ -63,21 +71,25 @@ exports[`QueryBuilderTextSearch QueryBuilderTextSearch Component Display field i
       <div
         class="error-viewer"
       />
-      <input
-        class="form-control"
-        placeholder="Enter comma-separated values..."
-        type="text"
-        value="test1, test2, test3"
-      />
+      <div
+        class="d-flex flex-column gap-1"
+      >
+        <input
+          class="form-control"
+          placeholder="Enter comma-separated values..."
+          type="text"
+          value="test1, test2, test3"
+        />
+      </div>
     </form>
   </div>
 </DocumentFragment>
 `;
 
 exports[`QueryBuilderTextSearch transformTextSearchToDSL function ContainsText (Infix) operation Normal field 1`] = `
-Object {
-  "match": Object {
-    "data.attributes.textField.infix": Object {
+{
+  "match": {
+    "data.attributes.textField.infix": {
       "query": "text search",
     },
   },
@@ -85,21 +97,21 @@ Object {
 `;
 
 exports[`QueryBuilderTextSearch transformTextSearchToDSL function ContainsText (Infix) operation With relationship as field 1`] = `
-Object {
-  "nested": Object {
+{
+  "nested": {
     "path": "included",
-    "query": Object {
-      "bool": Object {
-        "must": Array [
-          Object {
-            "match": Object {
-              "included.attributes.name.infix": Object {
+    "query": {
+      "bool": {
+        "must": [
+          {
+            "match": {
+              "included.attributes.name.infix": {
                 "query": "text search",
               },
             },
           },
-          Object {
-            "term": Object {
+          {
+            "term": {
               "included.type": "collection",
             },
           },
@@ -111,21 +123,21 @@ Object {
 `;
 
 exports[`QueryBuilderTextSearch transformTextSearchToDSL function ContainsText (Infix) operation With relationship containing complex path as field 1`] = `
-Object {
-  "nested": Object {
+{
+  "nested": {
     "path": "included",
-    "query": Object {
-      "bool": Object {
-        "must": Array [
-          Object {
-            "match": Object {
-              "included.attributes.determination.scientificName.infix": Object {
+    "query": {
+      "bool": {
+        "must": [
+          {
+            "match": {
+              "included.attributes.determination.scientificName.infix": {
                 "query": "text",
               },
             },
           },
-          Object {
-            "term": Object {
+          {
+            "term": {
               "included.type": "organism",
             },
           },
@@ -136,24 +148,24 @@ Object {
 }
 `;
 
-exports[`QueryBuilderTextSearch transformTextSearchToDSL function Edge cases If no field value is provided, nothing should be generated. 1`] = `Object {}`;
+exports[`QueryBuilderTextSearch transformTextSearchToDSL function Edge cases If no field value is provided, nothing should be generated. 1`] = `{}`;
 
 exports[`QueryBuilderTextSearch transformTextSearchToDSL function Empty operation Normal field 1`] = `
-Object {
-  "bool": Object {
+{
+  "bool": {
     "minimum_should_match": 1,
-    "should": Array [
-      Object {
-        "bool": Object {
-          "must_not": Object {
-            "exists": Object {
+    "should": [
+      {
+        "bool": {
+          "must_not": {
+            "exists": {
               "field": "data.attributes.textField",
             },
           },
         },
       },
-      Object {
-        "term": Object {
+      {
+        "term": {
           "data.attributes.textField.keyword": "",
         },
       },
@@ -163,36 +175,36 @@ Object {
 `;
 
 exports[`QueryBuilderTextSearch transformTextSearchToDSL function Empty operation With relationship as field 1`] = `
-Object {
-  "bool": Object {
+{
+  "bool": {
     "minimum_should_match": 1,
-    "should": Array [
-      Object {
-        "nested": Object {
+    "should": [
+      {
+        "nested": {
           "path": "included",
-          "query": Object {
-            "bool": Object {
-              "must": Array [
-                Object {
-                  "term": Object {
+          "query": {
+            "bool": {
+              "must": [
+                {
+                  "term": {
                     "included.type": "collection",
                   },
                 },
-                Object {
-                  "bool": Object {
+                {
+                  "bool": {
                     "minimum_should_match": 1,
-                    "should": Array [
-                      Object {
-                        "bool": Object {
-                          "must_not": Object {
-                            "exists": Object {
+                    "should": [
+                      {
+                        "bool": {
+                          "must_not": {
+                            "exists": {
                               "field": "includes.name",
                             },
                           },
                         },
                       },
-                      Object {
-                        "term": Object {
+                      {
+                        "term": {
                           "includes.name.keyword": "",
                         },
                       },
@@ -204,13 +216,13 @@ Object {
           },
         },
       },
-      Object {
-        "bool": Object {
-          "must_not": Object {
-            "nested": Object {
+      {
+        "bool": {
+          "must_not": {
+            "nested": {
               "path": "included",
-              "query": Object {
-                "term": Object {
+              "query": {
+                "term": {
                   "included.type": "collection",
                 },
               },
@@ -224,27 +236,27 @@ Object {
 `;
 
 exports[`QueryBuilderTextSearch transformTextSearchToDSL function EndsWith operation Normal field 1`] = `
-Object {
-  "prefix": Object {
+{
+  "prefix": {
     "data.attributes.textField.prefix_reverse": "hcraes txet",
   },
 }
 `;
 
 exports[`QueryBuilderTextSearch transformTextSearchToDSL function EndsWith operation With relationship as field 1`] = `
-Object {
-  "nested": Object {
+{
+  "nested": {
     "path": "included",
-    "query": Object {
-      "bool": Object {
-        "must": Array [
-          Object {
-            "prefix": Object {
+    "query": {
+      "bool": {
+        "must": [
+          {
+            "prefix": {
               "included.attributes.name.prefix_reverse": "hcraes txet",
             },
           },
-          Object {
-            "term": Object {
+          {
+            "term": {
               "included.type": "collection",
             },
           },
@@ -256,19 +268,19 @@ Object {
 `;
 
 exports[`QueryBuilderTextSearch transformTextSearchToDSL function EndsWith operation With relationship containing complex path as field 1`] = `
-Object {
-  "nested": Object {
+{
+  "nested": {
     "path": "included",
-    "query": Object {
-      "bool": Object {
-        "must": Array [
-          Object {
-            "prefix": Object {
+    "query": {
+      "bool": {
+        "must": [
+          {
+            "prefix": {
               "included.attributes.determination.scientificName.prefix_reverse": "txet",
             },
           },
-          Object {
-            "term": Object {
+          {
+            "term": {
               "included.type": "organism",
             },
           },
@@ -280,59 +292,27 @@ Object {
 `;
 
 exports[`QueryBuilderTextSearch transformTextSearchToDSL function Equals operation Normal field 1`] = `
-Object {
-  "term": Object {
+{
+  "term": {
     "data.attributes.textField": "text search",
   },
 }
 `;
 
-exports[`QueryBuilderTextSearch transformTextSearchToDSL function Equals operation Normal field 2`] = `
-Object {
-  "term": Object {
-    "data.attributes.textField": "true",
-  },
-}
-`;
-
 exports[`QueryBuilderTextSearch transformTextSearchToDSL function Equals operation With relationship as field 1`] = `
-Object {
-  "nested": Object {
+{
+  "nested": {
     "path": "included",
-    "query": Object {
-      "bool": Object {
-        "must": Array [
-          Object {
-            "term": Object {
+    "query": {
+      "bool": {
+        "must": [
+          {
+            "term": {
               "included.attributes.name.keyword": "text search",
             },
           },
-          Object {
-            "term": Object {
-              "included.type": "collection",
-            },
-          },
-        ],
-      },
-    },
-  },
-}
-`;
-
-exports[`QueryBuilderTextSearch transformTextSearchToDSL function Equals operation With relationship as field 2`] = `
-Object {
-  "nested": Object {
-    "path": "included",
-    "query": Object {
-      "bool": Object {
-        "must": Array [
-          Object {
-            "term": Object {
-              "includes.name.keyword": "false",
-            },
-          },
-          Object {
-            "term": Object {
+          {
+            "term": {
               "included.type": "collection",
             },
           },
@@ -344,19 +324,19 @@ Object {
 `;
 
 exports[`QueryBuilderTextSearch transformTextSearchToDSL function Equals operation With relationship containing complex path as field 1`] = `
-Object {
-  "nested": Object {
+{
+  "nested": {
     "path": "included",
-    "query": Object {
-      "bool": Object {
-        "must": Array [
-          Object {
-            "term": Object {
+    "query": {
+      "bool": {
+        "must": [
+          {
+            "term": {
               "included.attributes.determination.scientificName.keyword": "text search",
             },
           },
-          Object {
-            "term": Object {
+          {
+            "term": {
               "included.type": "organism",
             },
           },
@@ -367,28 +347,60 @@ Object {
 }
 `;
 
+exports[`QueryBuilderTextSearch transformTextSearchToDSL function Equals operation with boolean-like values Normal field 1`] = `
+{
+  "term": {
+    "data.attributes.textField": "true",
+  },
+}
+`;
+
+exports[`QueryBuilderTextSearch transformTextSearchToDSL function Equals operation with boolean-like values With relationship as field 1`] = `
+{
+  "nested": {
+    "path": "included",
+    "query": {
+      "bool": {
+        "must": [
+          {
+            "term": {
+              "includes.name.keyword": "false",
+            },
+          },
+          {
+            "term": {
+              "included.type": "collection",
+            },
+          },
+        ],
+      },
+    },
+  },
+}
+`;
+
 exports[`QueryBuilderTextSearch transformTextSearchToDSL function Exact Match operation Normal field 1`] = `
-Object {
-  "term": Object {
+{
+  "term": {
     "data.attributes.textField.keyword": "text search",
   },
 }
 `;
 
 exports[`QueryBuilderTextSearch transformTextSearchToDSL function Exact Match operation With relationship as field 1`] = `
-Object {
-  "nested": Object {
+{
+  "nested": {
     "path": "included",
-    "query": Object {
-      "bool": Object {
-        "must": Array [
-          Object {
-            "term": Object {
+    "query": {
+      "bool": {
+        "must": [
+          {
+            "term": {
               "includes.name.keyword": "text search",
             },
           },
-          Object {
-            "term": Object {
+          {
+            "term": {
               "included.type": "collection",
             },
           },
@@ -400,22 +412,22 @@ Object {
 `;
 
 exports[`QueryBuilderTextSearch transformTextSearchToDSL function Not Equals operation Normal field 1`] = `
-Object {
-  "bool": Object {
-    "should": Array [
-      Object {
-        "bool": Object {
-          "must_not": Object {
-            "term": Object {
+{
+  "bool": {
+    "should": [
+      {
+        "bool": {
+          "must_not": {
+            "term": {
               "data.attributes.textField": "text search",
             },
           },
         },
       },
-      Object {
-        "bool": Object {
-          "must_not": Object {
-            "exists": Object {
+      {
+        "bool": {
+          "must_not": {
+            "exists": {
               "field": "data.attributes.textField",
             },
           },
@@ -427,22 +439,22 @@ Object {
 `;
 
 exports[`QueryBuilderTextSearch transformTextSearchToDSL function Not Equals operation With relationship as field 1`] = `
-Object {
-  "bool": Object {
-    "must_not": Array [
-      Object {
-        "nested": Object {
+{
+  "bool": {
+    "must_not": [
+      {
+        "nested": {
           "path": "included",
-          "query": Object {
-            "bool": Object {
-              "must": Array [
-                Object {
-                  "term": Object {
+          "query": {
+            "bool": {
+              "must": [
+                {
+                  "term": {
                     "included.type": "collection",
                   },
                 },
-                Object {
-                  "term": Object {
+                {
+                  "term": {
                     "includes.name": "text search",
                   },
                 },
@@ -457,17 +469,17 @@ Object {
 `;
 
 exports[`QueryBuilderTextSearch transformTextSearchToDSL function Not empty operation Normal field 1`] = `
-Object {
-  "bool": Object {
-    "must": Array [
-      Object {
-        "exists": Object {
+{
+  "bool": {
+    "must": [
+      {
+        "exists": {
           "field": "data.attributes.textField",
         },
       },
     ],
-    "must_not": Object {
-      "term": Object {
+    "must_not": {
+      "term": {
         "data.attributes.textField.keyword": "",
       },
     },
@@ -476,25 +488,25 @@ Object {
 `;
 
 exports[`QueryBuilderTextSearch transformTextSearchToDSL function Not empty operation With relationship as field 1`] = `
-Object {
-  "nested": Object {
+{
+  "nested": {
     "path": "included",
-    "query": Object {
-      "bool": Object {
-        "must": Array [
-          Object {
-            "exists": Object {
+    "query": {
+      "bool": {
+        "must": [
+          {
+            "exists": {
               "field": "includes.name",
             },
           },
-          Object {
-            "term": Object {
+          {
+            "term": {
               "included.type": "collection",
             },
           },
         ],
-        "must_not": Object {
-          "term": Object {
+        "must_not": {
+          "term": {
             "includes.name.keyword": "",
           },
         },
@@ -505,9 +517,9 @@ Object {
 `;
 
 exports[`QueryBuilderTextSearch transformTextSearchToDSL function contains (wildcard) operation Normal field 1`] = `
-Object {
-  "wildcard": Object {
-    "data.attributes.textField": Object {
+{
+  "wildcard": {
+    "data.attributes.textField": {
       "case_insensitive": true,
       "value": "*text search*",
     },
@@ -516,22 +528,22 @@ Object {
 `;
 
 exports[`QueryBuilderTextSearch transformTextSearchToDSL function contains (wildcard) operation With relationship as field 1`] = `
-Object {
-  "nested": Object {
+{
+  "nested": {
     "path": "included",
-    "query": Object {
-      "bool": Object {
-        "must": Array [
-          Object {
-            "wildcard": Object {
-              "included.attributes.name.keyword": Object {
+    "query": {
+      "bool": {
+        "must": [
+          {
+            "wildcard": {
+              "included.attributes.name.keyword": {
                 "case_insensitive": true,
                 "value": "*text search*",
               },
             },
           },
-          Object {
-            "term": Object {
+          {
+            "term": {
               "included.type": "collection",
             },
           },
@@ -543,22 +555,22 @@ Object {
 `;
 
 exports[`QueryBuilderTextSearch transformTextSearchToDSL function contains (wildcard) operation With relationship containing complex path as field 1`] = `
-Object {
-  "nested": Object {
+{
+  "nested": {
     "path": "included",
-    "query": Object {
-      "bool": Object {
-        "must": Array [
-          Object {
-            "wildcard": Object {
-              "included.attributes.determination.scientificName": Object {
+    "query": {
+      "bool": {
+        "must": [
+          {
+            "wildcard": {
+              "included.attributes.determination.scientificName": {
                 "case_insensitive": true,
                 "value": "*text*",
               },
             },
           },
-          Object {
-            "term": Object {
+          {
+            "term": {
               "included.type": "organism",
             },
           },
@@ -569,32 +581,146 @@ Object {
 }
 `;
 
-exports[`QueryBuilderTextSearch transformTextSearchToDSL function in operator Normal field 1`] = `
-Object {
-  "bool": Object {
-    "must": Object {
-      "bool": Object {
+exports[`QueryBuilderTextSearch transformTextSearchToDSL function in operator Normal field - over 100 items (case-sensitive terms query) 1`] = `
+{
+  "bool": {
+    "must": {
+      "terms": {
+        "data.attributes.textField": [
+          "test1",
+          "test2",
+          "test3",
+          "test4",
+          "test5",
+          "test6",
+          "test7",
+          "test8",
+          "test9",
+          "test10",
+          "test11",
+          "test12",
+          "test13",
+          "test14",
+          "test15",
+          "test16",
+          "test17",
+          "test18",
+          "test19",
+          "test20",
+          "test21",
+          "test22",
+          "test23",
+          "test24",
+          "test25",
+          "test26",
+          "test27",
+          "test28",
+          "test29",
+          "test30",
+          "test31",
+          "test32",
+          "test33",
+          "test34",
+          "test35",
+          "test36",
+          "test37",
+          "test38",
+          "test39",
+          "test40",
+          "test41",
+          "test42",
+          "test43",
+          "test44",
+          "test45",
+          "test46",
+          "test47",
+          "test48",
+          "test49",
+          "test50",
+          "test51",
+          "test52",
+          "test53",
+          "test54",
+          "test55",
+          "test56",
+          "test57",
+          "test58",
+          "test59",
+          "test60",
+          "test61",
+          "test62",
+          "test63",
+          "test64",
+          "test65",
+          "test66",
+          "test67",
+          "test68",
+          "test69",
+          "test70",
+          "test71",
+          "test72",
+          "test73",
+          "test74",
+          "test75",
+          "test76",
+          "test77",
+          "test78",
+          "test79",
+          "test80",
+          "test81",
+          "test82",
+          "test83",
+          "test84",
+          "test85",
+          "test86",
+          "test87",
+          "test88",
+          "test89",
+          "test90",
+          "test91",
+          "test92",
+          "test93",
+          "test94",
+          "test95",
+          "test96",
+          "test97",
+          "test98",
+          "test99",
+          "test100",
+          "test101",
+        ],
+      },
+    },
+  },
+}
+`;
+
+exports[`QueryBuilderTextSearch transformTextSearchToDSL function in operator Normal field - under threshold (case-insensitive term query) 1`] = `
+{
+  "bool": {
+    "must": {
+      "bool": {
         "minimum_should_match": 1,
-        "should": Array [
-          Object {
-            "term": Object {
-              "data.attributes.textField": Object {
+        "should": [
+          {
+            "term": {
+              "data.attributes.textField": {
                 "case_insensitive": true,
                 "value": "test1",
               },
             },
           },
-          Object {
-            "term": Object {
-              "data.attributes.textField": Object {
+          {
+            "term": {
+              "data.attributes.textField": {
                 "case_insensitive": true,
                 "value": "test2",
               },
             },
           },
-          Object {
-            "term": Object {
-              "data.attributes.textField": Object {
+          {
+            "term": {
+              "data.attributes.textField": {
                 "case_insensitive": true,
                 "value": "test3",
               },
@@ -607,35 +733,501 @@ Object {
 }
 `;
 
-exports[`QueryBuilderTextSearch transformTextSearchToDSL function not in operator Normal field 1`] = `
-Object {
-  "bool": Object {
-    "must_not": Object {
-      "bool": Object {
+exports[`QueryBuilderTextSearch transformTextSearchToDSL function in operator Relationship field - over 100 items 1`] = `
+{
+  "nested": {
+    "path": "included",
+    "query": {
+      "bool": {
+        "must": [
+          {
+            "bool": {
+              "must": {
+                "terms": {
+                  "included.attributes.determination.scientificName.keyword": [
+                    "test1",
+                    "test2",
+                    "test3",
+                    "test4",
+                    "test5",
+                    "test6",
+                    "test7",
+                    "test8",
+                    "test9",
+                    "test10",
+                    "test11",
+                    "test12",
+                    "test13",
+                    "test14",
+                    "test15",
+                    "test16",
+                    "test17",
+                    "test18",
+                    "test19",
+                    "test20",
+                    "test21",
+                    "test22",
+                    "test23",
+                    "test24",
+                    "test25",
+                    "test26",
+                    "test27",
+                    "test28",
+                    "test29",
+                    "test30",
+                    "test31",
+                    "test32",
+                    "test33",
+                    "test34",
+                    "test35",
+                    "test36",
+                    "test37",
+                    "test38",
+                    "test39",
+                    "test40",
+                    "test41",
+                    "test42",
+                    "test43",
+                    "test44",
+                    "test45",
+                    "test46",
+                    "test47",
+                    "test48",
+                    "test49",
+                    "test50",
+                    "test51",
+                    "test52",
+                    "test53",
+                    "test54",
+                    "test55",
+                    "test56",
+                    "test57",
+                    "test58",
+                    "test59",
+                    "test60",
+                    "test61",
+                    "test62",
+                    "test63",
+                    "test64",
+                    "test65",
+                    "test66",
+                    "test67",
+                    "test68",
+                    "test69",
+                    "test70",
+                    "test71",
+                    "test72",
+                    "test73",
+                    "test74",
+                    "test75",
+                    "test76",
+                    "test77",
+                    "test78",
+                    "test79",
+                    "test80",
+                    "test81",
+                    "test82",
+                    "test83",
+                    "test84",
+                    "test85",
+                    "test86",
+                    "test87",
+                    "test88",
+                    "test89",
+                    "test90",
+                    "test91",
+                    "test92",
+                    "test93",
+                    "test94",
+                    "test95",
+                    "test96",
+                    "test97",
+                    "test98",
+                    "test99",
+                    "test100",
+                    "test101",
+                  ],
+                },
+              },
+            },
+          },
+          {
+            "term": {
+              "included.type": "organism",
+            },
+          },
+        ],
+      },
+    },
+  },
+}
+`;
+
+exports[`QueryBuilderTextSearch transformTextSearchToDSL function in operator Relationship field - under threshold 1`] = `
+{
+  "nested": {
+    "path": "included",
+    "query": {
+      "bool": {
+        "must": [
+          {
+            "bool": {
+              "must": {
+                "bool": {
+                  "minimum_should_match": 1,
+                  "should": [
+                    {
+                      "term": {
+                        "included.attributes.determination.scientificName.keyword": {
+                          "case_insensitive": true,
+                          "value": "Homo sapiens",
+                        },
+                      },
+                    },
+                    {
+                      "term": {
+                        "included.attributes.determination.scientificName.keyword": {
+                          "case_insensitive": true,
+                          "value": "Canis lupus",
+                        },
+                      },
+                    },
+                  ],
+                },
+              },
+            },
+          },
+          {
+            "term": {
+              "included.type": "organism",
+            },
+          },
+        ],
+      },
+    },
+  },
+}
+`;
+
+exports[`QueryBuilderTextSearch transformTextSearchToDSL function not in operator Normal field - over 100 items (case-sensitive terms query) 1`] = `
+{
+  "bool": {
+    "must_not": {
+      "terms": {
+        "data.attributes.textField": [
+          "test1",
+          "test2",
+          "test3",
+          "test4",
+          "test5",
+          "test6",
+          "test7",
+          "test8",
+          "test9",
+          "test10",
+          "test11",
+          "test12",
+          "test13",
+          "test14",
+          "test15",
+          "test16",
+          "test17",
+          "test18",
+          "test19",
+          "test20",
+          "test21",
+          "test22",
+          "test23",
+          "test24",
+          "test25",
+          "test26",
+          "test27",
+          "test28",
+          "test29",
+          "test30",
+          "test31",
+          "test32",
+          "test33",
+          "test34",
+          "test35",
+          "test36",
+          "test37",
+          "test38",
+          "test39",
+          "test40",
+          "test41",
+          "test42",
+          "test43",
+          "test44",
+          "test45",
+          "test46",
+          "test47",
+          "test48",
+          "test49",
+          "test50",
+          "test51",
+          "test52",
+          "test53",
+          "test54",
+          "test55",
+          "test56",
+          "test57",
+          "test58",
+          "test59",
+          "test60",
+          "test61",
+          "test62",
+          "test63",
+          "test64",
+          "test65",
+          "test66",
+          "test67",
+          "test68",
+          "test69",
+          "test70",
+          "test71",
+          "test72",
+          "test73",
+          "test74",
+          "test75",
+          "test76",
+          "test77",
+          "test78",
+          "test79",
+          "test80",
+          "test81",
+          "test82",
+          "test83",
+          "test84",
+          "test85",
+          "test86",
+          "test87",
+          "test88",
+          "test89",
+          "test90",
+          "test91",
+          "test92",
+          "test93",
+          "test94",
+          "test95",
+          "test96",
+          "test97",
+          "test98",
+          "test99",
+          "test100",
+          "test101",
+        ],
+      },
+    },
+  },
+}
+`;
+
+exports[`QueryBuilderTextSearch transformTextSearchToDSL function not in operator Normal field - under threshold (case-insensitive term query) 1`] = `
+{
+  "bool": {
+    "must_not": {
+      "bool": {
         "minimum_should_match": 1,
-        "should": Array [
-          Object {
-            "term": Object {
-              "data.attributes.textField": Object {
+        "should": [
+          {
+            "term": {
+              "data.attributes.textField": {
                 "case_insensitive": true,
                 "value": "test1",
               },
             },
           },
-          Object {
-            "term": Object {
-              "data.attributes.textField": Object {
+          {
+            "term": {
+              "data.attributes.textField": {
                 "case_insensitive": true,
                 "value": "test2",
               },
             },
           },
-          Object {
-            "term": Object {
-              "data.attributes.textField": Object {
+          {
+            "term": {
+              "data.attributes.textField": {
                 "case_insensitive": true,
                 "value": "test3",
               },
+            },
+          },
+        ],
+      },
+    },
+  },
+}
+`;
+
+exports[`QueryBuilderTextSearch transformTextSearchToDSL function not in operator Relationship field - over 100 items 1`] = `
+{
+  "nested": {
+    "path": "included",
+    "query": {
+      "bool": {
+        "must": [
+          {
+            "bool": {
+              "must_not": {
+                "terms": {
+                  "included.attributes.determination.scientificName.keyword": [
+                    "test1",
+                    "test2",
+                    "test3",
+                    "test4",
+                    "test5",
+                    "test6",
+                    "test7",
+                    "test8",
+                    "test9",
+                    "test10",
+                    "test11",
+                    "test12",
+                    "test13",
+                    "test14",
+                    "test15",
+                    "test16",
+                    "test17",
+                    "test18",
+                    "test19",
+                    "test20",
+                    "test21",
+                    "test22",
+                    "test23",
+                    "test24",
+                    "test25",
+                    "test26",
+                    "test27",
+                    "test28",
+                    "test29",
+                    "test30",
+                    "test31",
+                    "test32",
+                    "test33",
+                    "test34",
+                    "test35",
+                    "test36",
+                    "test37",
+                    "test38",
+                    "test39",
+                    "test40",
+                    "test41",
+                    "test42",
+                    "test43",
+                    "test44",
+                    "test45",
+                    "test46",
+                    "test47",
+                    "test48",
+                    "test49",
+                    "test50",
+                    "test51",
+                    "test52",
+                    "test53",
+                    "test54",
+                    "test55",
+                    "test56",
+                    "test57",
+                    "test58",
+                    "test59",
+                    "test60",
+                    "test61",
+                    "test62",
+                    "test63",
+                    "test64",
+                    "test65",
+                    "test66",
+                    "test67",
+                    "test68",
+                    "test69",
+                    "test70",
+                    "test71",
+                    "test72",
+                    "test73",
+                    "test74",
+                    "test75",
+                    "test76",
+                    "test77",
+                    "test78",
+                    "test79",
+                    "test80",
+                    "test81",
+                    "test82",
+                    "test83",
+                    "test84",
+                    "test85",
+                    "test86",
+                    "test87",
+                    "test88",
+                    "test89",
+                    "test90",
+                    "test91",
+                    "test92",
+                    "test93",
+                    "test94",
+                    "test95",
+                    "test96",
+                    "test97",
+                    "test98",
+                    "test99",
+                    "test100",
+                    "test101",
+                  ],
+                },
+              },
+            },
+          },
+          {
+            "term": {
+              "included.type": "organism",
+            },
+          },
+        ],
+      },
+    },
+  },
+}
+`;
+
+exports[`QueryBuilderTextSearch transformTextSearchToDSL function not in operator Relationship field - under threshold 1`] = `
+{
+  "nested": {
+    "path": "included",
+    "query": {
+      "bool": {
+        "must": [
+          {
+            "bool": {
+              "must_not": {
+                "bool": {
+                  "minimum_should_match": 1,
+                  "should": [
+                    {
+                      "term": {
+                        "included.attributes.determination.scientificName.keyword": {
+                          "case_insensitive": true,
+                          "value": "Homo sapiens",
+                        },
+                      },
+                    },
+                    {
+                      "term": {
+                        "included.attributes.determination.scientificName.keyword": {
+                          "case_insensitive": true,
+                          "value": "Canis lupus",
+                        },
+                      },
+                    },
+                  ],
+                },
+              },
+            },
+          },
+          {
+            "term": {
+              "included.type": "organism",
             },
           },
         ],
@@ -646,9 +1238,9 @@ Object {
 `;
 
 exports[`QueryBuilderTextSearch transformTextSearchToDSL function startsWith (prefix) operation (Non-optimized) Normal field 1`] = `
-Object {
-  "prefix": Object {
-    "data.attributes.textField": Object {
+{
+  "prefix": {
+    "data.attributes.textField": {
       "case_insensitive": true,
       "value": "text search",
     },
@@ -657,22 +1249,22 @@ Object {
 `;
 
 exports[`QueryBuilderTextSearch transformTextSearchToDSL function startsWith (prefix) operation (Non-optimized) With relationship as field 1`] = `
-Object {
-  "nested": Object {
+{
+  "nested": {
     "path": "included",
-    "query": Object {
-      "bool": Object {
-        "must": Array [
-          Object {
-            "prefix": Object {
-              "included.attributes.name": Object {
+    "query": {
+      "bool": {
+        "must": [
+          {
+            "prefix": {
+              "included.attributes.name": {
                 "case_insensitive": true,
                 "value": "text search",
               },
             },
           },
-          Object {
-            "term": Object {
+          {
+            "term": {
               "included.type": "collection",
             },
           },
@@ -684,22 +1276,22 @@ Object {
 `;
 
 exports[`QueryBuilderTextSearch transformTextSearchToDSL function startsWith (prefix) operation (Non-optimized) With relationship containing complex path as field 1`] = `
-Object {
-  "nested": Object {
+{
+  "nested": {
     "path": "included",
-    "query": Object {
-      "bool": Object {
-        "must": Array [
-          Object {
-            "prefix": Object {
-              "included.attributes.determination.scientificName": Object {
+    "query": {
+      "bool": {
+        "must": [
+          {
+            "prefix": {
+              "included.attributes.determination.scientificName": {
                 "case_insensitive": true,
                 "value": "text",
               },
             },
           },
-          Object {
-            "term": Object {
+          {
+            "term": {
               "included.type": "organism",
             },
           },
@@ -711,9 +1303,9 @@ Object {
 `;
 
 exports[`QueryBuilderTextSearch transformTextSearchToDSL function startsWith (prefix) operation (Optimized) Normal field 1`] = `
-Object {
-  "prefix": Object {
-    "data.attributes.textField.prefix": Object {
+{
+  "prefix": {
+    "data.attributes.textField.prefix": {
       "case_insensitive": true,
       "value": "text search",
     },
@@ -722,22 +1314,22 @@ Object {
 `;
 
 exports[`QueryBuilderTextSearch transformTextSearchToDSL function startsWith (prefix) operation (Optimized) With relationship as field 1`] = `
-Object {
-  "nested": Object {
+{
+  "nested": {
     "path": "included",
-    "query": Object {
-      "bool": Object {
-        "must": Array [
-          Object {
-            "prefix": Object {
-              "included.attributes.name.prefix": Object {
+    "query": {
+      "bool": {
+        "must": [
+          {
+            "prefix": {
+              "included.attributes.name.prefix": {
                 "case_insensitive": true,
                 "value": "text search",
               },
             },
           },
-          Object {
-            "term": Object {
+          {
+            "term": {
               "included.type": "collection",
             },
           },
@@ -749,22 +1341,22 @@ Object {
 `;
 
 exports[`QueryBuilderTextSearch transformTextSearchToDSL function startsWith (prefix) operation (Optimized) With relationship containing complex path as field 1`] = `
-Object {
-  "nested": Object {
+{
+  "nested": {
     "path": "included",
-    "query": Object {
-      "bool": Object {
-        "must": Array [
-          Object {
-            "prefix": Object {
-              "included.attributes.determination.scientificName.prefix": Object {
+    "query": {
+      "bool": {
+        "must": [
+          {
+            "prefix": {
+              "included.attributes.determination.scientificName.prefix": {
                 "case_insensitive": true,
                 "value": "text",
               },
             },
           },
-          Object {
-            "term": Object {
+          {
+            "term": {
               "included.type": "organism",
             },
           },

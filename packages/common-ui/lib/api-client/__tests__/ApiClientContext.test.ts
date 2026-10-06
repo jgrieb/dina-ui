@@ -1,4 +1,4 @@
-import { AxiosError } from "axios";
+import axios, { AxiosError } from "axios";
 import Kitsu from "kitsu";
 import {
   ApiClientImpl,
@@ -38,7 +38,8 @@ import {
   MOCK_BULK_GET_410_404_RESPONSE_DESERIALIZED,
   MOCK_GET_ERROR
 } from "../__mocks__/ApiClientContextMocks";
-import { waitFor } from "@testing-library/dom";
+import { waitFor } from "@testing-library/react";
+import { buildMemoryStorage, setupCache } from "axios-cache-interceptor";
 
 /** Mock of Axios' patch function. */
 const mockPatch: jest.Mock<any, any> = jest.fn((_url, data, _config) => {
@@ -150,8 +151,7 @@ describe("API client context", () => {
       expect(config).toEqual({
         headers: {
           Accept: "application/vnd.api+json",
-          "Content-Type": "application/vnd.api+json",
-          "Crnk-Compact": "true"
+          "Content-Type": "application/vnd.api+json"
         }
       });
 
@@ -824,6 +824,302 @@ describe("API client context", () => {
         { type: "primer", id: "200" }
       ]);
     });
+
+    it("bulkGet single includes should be merging the data into one response", async () => {
+      const bulkApiResponse = {
+        data: {
+          id: "3f5cc46b-a247-4195-a3d7-9e4334ece945",
+          type: "metadata",
+          attributes: {
+            originalFilename: "RAWCANON-30D.CR2",
+            filename: "rawr",
+            dcFormat: "image/CR2"
+          },
+          relationships: {
+            derivatives: {
+              data: [
+                {
+                  id: "63d2fd88-6d92-45cb-b8fe-2c1d795d1bee",
+                  type: "derivative"
+                },
+                {
+                  id: "2feaca8b-34eb-475e-b449-f981e0275b6c",
+                  type: "derivative"
+                }
+              ]
+            }
+          }
+        },
+        included: [
+          {
+            id: "2feaca8b-34eb-475e-b449-f981e0275b6c",
+            type: "derivative",
+            attributes: {
+              derivativeType: "LARGE_IMAGE",
+              fileExtension: ".jpg"
+            }
+          },
+          {
+            id: "63d2fd88-6d92-45cb-b8fe-2c1d795d1bee",
+            type: "derivative",
+            attributes: {
+              derivativeType: "THUMBNAIL_IMAGE",
+              fileExtension: ".jpg"
+            }
+          }
+        ],
+        meta: {
+          moduleVersion: "1.36"
+        }
+      };
+
+      mockGet.mockImplementationOnce(async () => ({
+        status: 200,
+        data: bulkApiResponse
+      }));
+
+      const paths = [
+        "metadata/3f5cc46b-a247-4195-a3d7-9e4334ece945?include=derivatives"
+      ];
+
+      const response = await bulkGet(paths, {
+        apiBaseUrl: "/objectstore-api"
+      });
+
+      // Verify the bulk-load request URL and body batching
+      expect(mockGet).toHaveBeenCalledTimes(1);
+      expect(mockGet.mock.calls[0][0]).toBe(
+        "/objectstore-api/metadata/3f5cc46b-a247-4195-a3d7-9e4334ece945?include=derivatives"
+      );
+
+      // Verify response order and merged includes
+      expect(response).toEqual([
+        {
+          dcFormat: "image/CR2",
+          derivatives: [
+            {
+              derivativeType: "THUMBNAIL_IMAGE",
+              fileExtension: ".jpg",
+              id: "63d2fd88-6d92-45cb-b8fe-2c1d795d1bee",
+              type: "derivative"
+            },
+            {
+              derivativeType: "LARGE_IMAGE",
+              fileExtension: ".jpg",
+              id: "2feaca8b-34eb-475e-b449-f981e0275b6c",
+              type: "derivative"
+            }
+          ],
+          filename: "rawr",
+          id: "3f5cc46b-a247-4195-a3d7-9e4334ece945",
+          originalFilename: "RAWCANON-30D.CR2",
+          type: "metadata"
+        }
+      ]);
+    });
+
+    it("bulkGet multiple includes should be merging the data into one response", async () => {
+      const bulkApiResponse = {
+        data: [
+          {
+            id: "3a0538a4-a483-4d4b-813b-2ceadd310bee",
+            type: "metadata",
+            attributes: {
+              originalFilename: "RAWCANON-30D.CR2",
+              filename: "rawr",
+              dcFormat: "image/CR2"
+            },
+            relationships: {
+              derivatives: {
+                data: [
+                  {
+                    id: "ee69dd9f-862c-4034-bc20-dde0b52ff56e",
+                    type: "derivative"
+                  },
+                  {
+                    id: "77f87eb5-ac8e-41bc-b195-b7f4e0c00592",
+                    type: "derivative"
+                  }
+                ]
+              }
+            }
+          },
+          {
+            id: "b8a9f92b-cf04-461b-b4b4-d439fd47dac3",
+            type: "metadata",
+            attributes: {
+              originalFilename: "profile_picture.jpg",
+              filename: "profile_picture.jpg",
+              dcFormat: "image/jpeg"
+            },
+            relationships: {
+              derivatives: {
+                data: [
+                  {
+                    id: "7648ba7b-0145-4a12-9912-ef8675b762c9",
+                    type: "derivative"
+                  }
+                ]
+              }
+            }
+          },
+          {
+            id: "3f5cc46b-a247-4195-a3d7-9e4334ece945",
+            type: "metadata",
+            attributes: {
+              originalFilename: "RAWCANON-30D.CR2",
+              filename: "RAWCANON-30D.CR2",
+              dcFormat: "image/CR2"
+            },
+            relationships: {
+              derivatives: {
+                data: [
+                  {
+                    id: "63d2fd88-6d92-45cb-b8fe-2c1d795d1bee",
+                    type: "derivative"
+                  },
+                  {
+                    id: "2feaca8b-34eb-475e-b449-f981e0275b6c",
+                    type: "derivative"
+                  }
+                ]
+              }
+            }
+          }
+        ],
+        included: [
+          {
+            id: "7648ba7b-0145-4a12-9912-ef8675b762c9",
+            type: "derivative",
+            attributes: {
+              derivativeType: "THUMBNAIL_IMAGE",
+              fileExtension: ".jpg"
+            }
+          },
+          {
+            id: "77f87eb5-ac8e-41bc-b195-b7f4e0c00592",
+            type: "derivative",
+            attributes: {
+              filename: "IMG_3064.JPG",
+              derivativeType: "LARGE_IMAGE"
+            }
+          },
+          {
+            id: "2feaca8b-34eb-475e-b449-f981e0275b6c",
+            type: "derivative",
+            attributes: {
+              filename: "IMG_2992_2.JPG",
+              derivativeType: "LARGE_IMAGE"
+            }
+          },
+          {
+            id: "ee69dd9f-862c-4034-bc20-dde0b52ff56e",
+            type: "derivative",
+            attributes: {
+              derivativeType: "THUMBNAIL_IMAGE",
+              fileExtension: ".jpg"
+            }
+          },
+          {
+            id: "63d2fd88-6d92-45cb-b8fe-2c1d795d1bee",
+            type: "derivative",
+            attributes: {
+              derivativeType: "THUMBNAIL_IMAGE",
+              fileExtension: ".jpg"
+            }
+          }
+        ]
+      };
+
+      mockPost.mockImplementationOnce(async () => ({
+        status: 200,
+        data: bulkApiResponse
+      }));
+
+      const paths = [
+        "metadata/3a0538a4-a483-4d4b-813b-2ceadd310bee?include=derivatives",
+        "metadata/b8a9f92b-cf04-461b-b4b4-d439fd47dac3?include=derivatives",
+        "metadata/3f5cc46b-a247-4195-a3d7-9e4334ece945?include=derivatives"
+      ];
+
+      const response = await bulkGet(paths, {
+        apiBaseUrl: "/objectstore-api"
+      });
+
+      // Verify the bulk-load request URL and body batching
+      expect(mockPost).toHaveBeenCalledTimes(1);
+      expect(mockPost.mock.calls[0][0]).toBe(
+        "/objectstore-api/metadata/bulk-load?include=derivatives"
+      );
+      expect(mockPost.mock.calls[0][1]).toEqual({
+        data: [
+          { type: "metadata", id: "3a0538a4-a483-4d4b-813b-2ceadd310bee" },
+          { type: "metadata", id: "b8a9f92b-cf04-461b-b4b4-d439fd47dac3" },
+          { type: "metadata", id: "3f5cc46b-a247-4195-a3d7-9e4334ece945" }
+        ]
+      });
+
+      // Verify response order and merged includes
+      expect(response).toEqual([
+        {
+          dcFormat: "image/CR2",
+          derivatives: [
+            {
+              id: "ee69dd9f-862c-4034-bc20-dde0b52ff56e",
+              type: "derivative",
+              derivativeType: "THUMBNAIL_IMAGE",
+              fileExtension: ".jpg"
+            },
+            {
+              id: "77f87eb5-ac8e-41bc-b195-b7f4e0c00592",
+              type: "derivative",
+              filename: "IMG_3064.JPG",
+              derivativeType: "LARGE_IMAGE"
+            }
+          ],
+          filename: "rawr",
+          id: "3a0538a4-a483-4d4b-813b-2ceadd310bee",
+          originalFilename: "RAWCANON-30D.CR2",
+          type: "metadata"
+        },
+        {
+          dcFormat: "image/jpeg",
+          derivatives: [
+            {
+              id: "7648ba7b-0145-4a12-9912-ef8675b762c9",
+              type: "derivative",
+              derivativeType: "THUMBNAIL_IMAGE",
+              fileExtension: ".jpg"
+            }
+          ],
+          filename: "profile_picture.jpg",
+          id: "b8a9f92b-cf04-461b-b4b4-d439fd47dac3",
+          originalFilename: "profile_picture.jpg",
+          type: "metadata"
+        },
+        {
+          dcFormat: "image/CR2",
+          derivatives: [
+            {
+              id: "63d2fd88-6d92-45cb-b8fe-2c1d795d1bee",
+              type: "derivative",
+              derivativeType: "THUMBNAIL_IMAGE",
+              fileExtension: ".jpg"
+            },
+            {
+              id: "2feaca8b-34eb-475e-b449-f981e0275b6c",
+              type: "derivative",
+              filename: "IMG_2992_2.JPG",
+              derivativeType: "LARGE_IMAGE"
+            }
+          ],
+          filename: "RAWCANON-30D.CR2",
+          id: "3f5cc46b-a247-4195-a3d7-9e4334ece945",
+          originalFilename: "RAWCANON-30D.CR2",
+          type: "metadata"
+        }
+      ]);
+    });
   });
 
   describe("getErrorMessages and error message handling", () => {
@@ -1167,6 +1463,44 @@ describe("API client context", () => {
       });
       mockAxiosGet = jest.fn();
       kitsu.axios = { get: mockAxiosGet } as any;
+    });
+
+    it("Caches repeated identical GET requests instead of hitting the network again", async () => {
+      let networkCallCount = 0;
+
+      // A raw axios instance with a fake adapter that counts real "network" calls.
+      const rawAxios = axios.create({
+        adapter: async (config) => {
+          networkCallCount++;
+          return {
+            data: {
+              data: {
+                type: "material-sample",
+                id: "1",
+                attributes: { name: "Sample 1" }
+              }
+            },
+            status: 200,
+            statusText: "OK",
+            headers: {},
+            config
+          };
+        }
+      });
+
+      // Wrap it with the cache interceptor the same way ApiClientImpl does.
+      const cachedAxios = setupCache(rawAxios, {
+        storage: buildMemoryStorage(false, 1000, 100),
+        ttl: 1000
+      });
+
+      kitsu.axios = cachedAxios as any;
+
+      await kitsu.get("seqdb-api/material-sample/1");
+      await kitsu.get("seqdb-api/material-sample/1");
+
+      // The second call should be served from cache, not hit the adapter again.
+      expect(networkCallCount).toBe(1);
     });
 
     it("Sends a get request without omitting the end of a login URL more than 2 slashes.", async () => {

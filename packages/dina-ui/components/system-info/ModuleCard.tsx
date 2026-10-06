@@ -1,16 +1,21 @@
 import { ApiModule, ModuleStatus } from "../../types/system-info/SystemInfo";
-import { Badge } from "react-bootstrap";
+import { Badge, Button, Collapse } from "react-bootstrap";
 import {
   FaCheckCircle,
   FaTimesCircle,
   FaExclamationTriangle,
-  FaExclamationCircle
+  FaExclamationCircle,
+  FaStopwatch,
+  FaChevronDown,
+  FaChevronUp
 } from "react-icons/fa";
+import { DinaMessage } from "../../intl/dina-ui-intl";
+import { useState } from "react";
 
 const STATUS_CONFIG: Record<
   ModuleStatus,
   {
-    label: string;
+    labelKey: "systemInfoStatusOnline" | "systemInfoStatusOffline";
     badgeBg: string;
     borderColor: string;
     headerBg: string;
@@ -18,20 +23,29 @@ const STATUS_CONFIG: Record<
   }
 > = {
   online: {
-    label: "Online",
+    labelKey: "systemInfoStatusOnline",
     badgeBg: "success",
     borderColor: "#198754",
     headerBg: "#d1e7dd",
     icon: <FaCheckCircle />
   },
   offline: {
-    label: "Offline",
+    labelKey: "systemInfoStatusOffline",
     badgeBg: "danger",
     borderColor: "#dc3545",
     headerBg: "#f8d7da",
     icon: <FaTimesCircle />
   }
 };
+
+/** Latency thresholds (in ms) used to color the latency value. */
+function latencyTextClass(latencyMs: number) {
+  return latencyMs < 500
+    ? "text-success"
+    : latencyMs < 2000
+    ? "text-warning"
+    : "text-danger";
+}
 
 function MicroLabel({ children }: { children: React.ReactNode }) {
   return (
@@ -46,19 +60,178 @@ function EnabledBadge({ enabled }: { enabled?: boolean }) {
   if (enabled === undefined) {
     return (
       <Badge bg="warning" text="dark" className="fw-normal">
-        Unknown
+        <DinaMessage id="systemInfoUnknown" />
       </Badge>
     );
   }
 
   return enabled ? (
     <Badge bg="success" className="fw-normal">
-      Enabled
+      <DinaMessage id="systemInfoEnabled" />
     </Badge>
   ) : (
     <Badge bg="secondary" className="fw-normal">
-      Disabled
+      <DinaMessage id="systemInfoDisabled" />
     </Badge>
+  );
+}
+
+/**
+ * Render standard scalar values cleanly
+ */
+function ScalarValue({ value }: { value: unknown }) {
+  if (typeof value === "boolean") {
+    return <EnabledBadge enabled={value} />;
+  }
+  return <code>{String(value)}</code>;
+}
+
+/**
+ * Specialized card for Elasticsearch/Search index objects
+ */
+function IndexCard({
+  name,
+  data
+}: {
+  name: string;
+  data: { online?: boolean; schemaVersion?: string };
+}) {
+  return (
+    <div className="p-2 border rounded bg-white shadow-sm d-flex align-items-center justify-content-between gap-2">
+      <div className="lh-sm">
+        <code className="fw-bold text-dark" style={{ fontSize: "0.8rem" }}>
+          {name}
+        </code>
+        {data.schemaVersion && (
+          <div className="text-muted mt-1" style={{ fontSize: "0.75rem" }}>
+            <DinaMessage id="field_version" />:{" "}
+            <code>v{data.schemaVersion}</code>
+          </div>
+        )}
+      </div>
+      {data.online !== undefined && (
+        <Badge
+          bg={data.online ? "success" : "danger"}
+          className="d-inline-flex align-items-center gap-1 fw-normal flex-shrink-0"
+        >
+          {data.online ? <FaCheckCircle /> : <FaTimesCircle />}
+          <DinaMessage
+            id={
+              data.online ? "systemInfoStatusOnline" : "systemInfoStatusOffline"
+            }
+          />
+        </Badge>
+      )}
+    </div>
+  );
+}
+
+/**
+ * Main Module Info renderer
+ */
+export function ModuleInfoSection({
+  moduleInfo
+}: {
+  moduleInfo: Map<string, any>;
+}) {
+  // Check if any indicies have an issue, if so it should be automatically expanded.
+  const hasNestedIssue = Array.from(moduleInfo.values()).some((value) => {
+    if (typeof value === "object" && value !== null && !Array.isArray(value)) {
+      return Object.values(value).some(
+        (subValue: any) => subValue?.online === false
+      );
+    }
+    return false;
+  });
+
+  const [indicesOpen, setIndicesOpen] = useState(hasNestedIssue);
+
+  return (
+    <div className="pt-2 d-flex flex-column gap-2">
+      <MicroLabel>
+        <DinaMessage id="systemInfoModuleInfo" />
+      </MicroLabel>
+
+      {Array.from(moduleInfo.entries()).map(([key, value]) => {
+        // If the value is a complex nested object (e.g., indices)
+        if (
+          typeof value === "object" &&
+          value !== null &&
+          !Array.isArray(value)
+        ) {
+          const entryCount = Object.keys(value).length;
+          return (
+            <div key={key} className="border rounded bg-light p-2">
+              {/* Collapsible header toggle for nested structures (e.g., indices) */}
+              <Button
+                variant="light"
+                size="sm"
+                className="d-flex align-items-center justify-content-between w-100 border-0 bg-transparent p-0 shadow-none text-start"
+                onClick={() => setIndicesOpen((prev) => !prev)}
+                aria-expanded={indicesOpen}
+              >
+                <div
+                  className="fw-bold text-muted text-uppercase"
+                  style={{ fontSize: "0.7rem" }}
+                >
+                  {key} ({entryCount})
+                </div>
+
+                <span className="d-flex align-items-center gap-1 text-primary small">
+                  {indicesOpen ? (
+                    <FaChevronUp size={10} />
+                  ) : (
+                    <FaChevronDown size={10} />
+                  )}
+                </span>
+              </Button>
+
+              {/* Collapsible content container containing IndexCard items */}
+              <Collapse in={indicesOpen}>
+                <div>
+                  <div className="d-flex flex-column gap-2 pt-2">
+                    {Object.entries(value).map(([subKey, subValue]) => {
+                      // Index shape check
+                      if (typeof subValue === "object" && subValue !== null) {
+                        return (
+                          <IndexCard
+                            key={subKey}
+                            name={subKey}
+                            data={subValue as any}
+                          />
+                        );
+                      }
+
+                      // Fallback for simple nested key-values
+                      return (
+                        <div
+                          key={subKey}
+                          className="d-flex justify-content-between align-items-center small"
+                        >
+                          <span className="text-muted">{subKey}:</span>
+                          <ScalarValue value={subValue} />
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              </Collapse>
+            </div>
+          );
+        }
+
+        // Standard top-level scalar property row
+        return (
+          <div
+            key={key}
+            className="d-flex justify-content-between align-items-center border-bottom pb-1 small"
+          >
+            <span className="fw-semibold text-muted">{key}</span>
+            <ScalarValue value={value} />
+          </div>
+        );
+      })}
+    </div>
   );
 }
 
@@ -91,7 +264,7 @@ export function ModuleCard({ module }: { module: ApiModule }) {
             bg={cfg.badgeBg}
             className="d-inline-flex align-items-center gap-1"
           >
-            {cfg.icon} {cfg.label}
+            {cfg.icon} <DinaMessage id={cfg.labelKey} />
           </Badge>
         </div>
       </div>
@@ -105,7 +278,8 @@ export function ModuleCard({ module }: { module: ApiModule }) {
             text="dark"
             className="d-inline-flex align-items-center gap-1"
           >
-            <FaExclamationCircle size={10} /> Attention Required
+            <FaExclamationCircle size={10} />{" "}
+            <DinaMessage id="systemInfoAttentionRequired" />
           </Badge>
         )}
 
@@ -124,14 +298,39 @@ export function ModuleCard({ module }: { module: ApiModule }) {
           </div>
         )}
 
-        {/* Version + Endpoint */}
+        {/* Version + Latency + Endpoint */}
         <div className="d-flex flex-wrap gap-3">
           <div>
-            <MicroLabel>Version</MicroLabel>
-            <code className="small">{module.moduleVersion}</code>
+            <MicroLabel>
+              <DinaMessage id="field_version" />
+            </MicroLabel>
+            <code className="small">
+              {module.moduleVersion ?? <DinaMessage id="systemInfoUnknown" />}
+            </code>
           </div>
+          {module.latencyMs !== undefined && (
+            <div>
+              <MicroLabel>
+                <DinaMessage id="systemInfoLatency" />
+              </MicroLabel>
+              <span
+                className={
+                  "small fw-semibold d-inline-flex align-items-center gap-1 " +
+                  latencyTextClass(module.latencyMs!)
+                }
+              >
+                <FaStopwatch size={11} />
+                <DinaMessage
+                  id="systemInfoLatencyMs"
+                  values={{ latencyMs: module.latencyMs }}
+                />
+              </span>
+            </div>
+          )}
           <div className="flex-grow-1">
-            <MicroLabel>Endpoint</MicroLabel>
+            <MicroLabel>
+              <DinaMessage id="systemInfoEndpoint" />
+            </MicroLabel>
             <div className="d-flex align-items-center gap-1">
               <code className="small text-break">
                 <>
@@ -149,13 +348,17 @@ export function ModuleCard({ module }: { module: ApiModule }) {
         {/* Message producer / consumer */}
         <div className="d-flex flex-wrap gap-3">
           <div>
-            <MicroLabel>Message Producer</MicroLabel>
+            <MicroLabel>
+              <DinaMessage id="systemInfoMessageProducer" />
+            </MicroLabel>
             <div className="d-flex align-items-center gap-1 mt-1">
               <EnabledBadge enabled={module.messageProducerEnabled} />
             </div>
           </div>
           <div>
-            <MicroLabel>Message Consumer</MicroLabel>
+            <MicroLabel>
+              <DinaMessage id="systemInfoMessageConsumer" />
+            </MicroLabel>
             <div className="d-flex align-items-center gap-1 mt-1">
               <EnabledBadge enabled={module.messageConsumerEnabled} />
             </div>
@@ -163,34 +366,7 @@ export function ModuleCard({ module }: { module: ApiModule }) {
         </div>
 
         {/* Module info — only rendered when extra info exists */}
-        {hasModuleInfo && (
-          <div className="pt-2">
-            <MicroLabel>Module Info</MicroLabel>
-            <table className="table table-sm table-bordered mb-0 small">
-              <tbody>
-                {Array.from(module.moduleInfo!.entries()).map(
-                  ([key, value]) => (
-                    <tr key={key}>
-                      <td
-                        className="fw-semibold text-muted bg-light text-nowrap"
-                        style={{ width: "40%" }}
-                      >
-                        {key}
-                      </td>
-                      <td>
-                        {typeof value === "boolean" ? (
-                          <EnabledBadge enabled={value} />
-                        ) : (
-                          String(value)
-                        )}
-                      </td>
-                    </tr>
-                  )
-                )}
-              </tbody>
-            </table>
-          </div>
-        )}
+        {hasModuleInfo && <ModuleInfoSection moduleInfo={module.moduleInfo!} />}
       </div>
     </div>
   );

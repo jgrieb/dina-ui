@@ -2,7 +2,8 @@ import {
   BulkDeleteButton,
   BulkSelectableFormValues,
   BULK_EDIT_IDS_KEY,
-  DinaForm
+  DinaForm,
+  OBJECT_STORE_MAPPING
 } from "common-ui";
 import { PersistedResource } from "kitsu";
 import { Group } from "../../../../types/user-api";
@@ -26,53 +27,10 @@ const TEST_GROUP: PersistedResource<Group>[] = [
     type: "group",
     name: "test group",
     path: " test path",
-    labels: { fr: "CNCFR" }
+    labels: { fr: "CNCFR" },
+    roles: ["SUPER_USER", "USER"]
   }
 ];
-
-const MOCK_INDEX_MAPPING_RESP = {
-  data: {
-    indexName: "dina_object_store_index",
-    attributes: [
-      {
-        name: "originalFilename",
-        type: "text",
-        path: "data.attributes"
-      },
-      {
-        name: "bucket",
-        type: "text",
-        path: "data.attributes"
-      },
-      {
-        name: "createdBy",
-        type: "text",
-        path: "data.attributes"
-      },
-      {
-        name: "acCaption",
-        type: "text",
-        path: "data.attributes"
-      },
-      {
-        name: "id",
-        type: "text",
-        path: "data"
-      },
-      {
-        name: "type",
-        type: "text",
-        path: "data"
-      },
-      {
-        name: "createdOn",
-        type: "date",
-        path: "data.attributes"
-      }
-    ],
-    relationships: []
-  }
-};
 
 const mockGet = jest.fn<any, any>(async (path) => {
   switch (path) {
@@ -83,12 +41,12 @@ const mockGet = jest.fn<any, any>(async (path) => {
     case "agent-api/person":
       return { data: TEST_PERSON };
     case "search-api/search-ws/mapping":
-      return MOCK_INDEX_MAPPING_RESP;
+      return OBJECT_STORE_MAPPING;
     case "user-api/group":
       return TEST_GROUP;
     case "user-api/user-preference":
       return USER_PREFERENCE;
-    case "objectstore-api/managed-attribute":
+    case "objectstore-api/controlled-vocabulary-item":
       return { data: [] };
   }
 });

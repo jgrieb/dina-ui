@@ -1,4 +1,4 @@
-import { SaveArgs } from "common-ui";
+import { clearAndType, SaveArgs } from "common-ui";
 import { PersistedResource } from "kitsu";
 import { getComponentOrderFromTemplate } from "../../../../components/form-template/formTemplateUtils";
 import { FormTemplateEditPageLoaded } from "../../../../pages/collection/form-template/edit";
@@ -22,6 +22,7 @@ import {
   CITATIONS_COMPONENT_NAME
 } from "../../../../types/collection-api";
 import { fireEvent, waitFor, within } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import "@testing-library/jest-dom";
 import { useSearchWsCustomQuery } from "../../../../../common-ui/lib/search/useSearchWsCustomQuery";
 
@@ -129,13 +130,24 @@ const mockSave = jest.fn<any, any>(async (saves: SaveArgs[]) =>
   }))
 );
 
+const mockAxiosGet = jest.fn<any, any>(async () => ({
+  data: { hits: { total: { value: 0 }, hits: [] } }
+}));
+const mockAxiosPost = jest.fn<any, any>(async () => ({
+  data: { hits: { total: { value: 0 }, hits: [] } }
+}));
+
 const apiContext = {
   bulkGet: mockBulkGet,
   apiClient: {
-    get: mockGet
+    get: mockGet,
+    axios: {
+      get: mockAxiosGet,
+      post: mockAxiosPost
+    }
   },
   save: mockSave
-};
+} as any;
 
 /** Mount the form and provide test util functions. */
 async function mountForm(
@@ -175,10 +187,13 @@ async function mountForm(
   const associationsSwitch = within(
     wrapper.container.querySelector(".enable-associations")! as HTMLElement
   ).getByRole("switch") as HTMLInputElement;
+  const citationsSwitch = within(
+    wrapper.container.querySelector(".enable-citations")! as HTMLElement
+  ).getByRole("switch") as HTMLInputElement;
 
   async function toggleDataComponent(switchElement: HTMLElement, val: boolean) {
     // Simulate click event on the checkbox
-    fireEvent.click(switchElement);
+    await userEvent.click(switchElement);
     if (!val) {
       // Click "yes" when asked Are You Sure:
       const modalForm = wrapper.container.querySelector(".modal-content form");
@@ -212,11 +227,15 @@ async function mountForm(
     await toggleDataComponent(associationsSwitch, val);
   }
 
+  async function toggleCitations(val: boolean) {
+    await toggleDataComponent(citationsSwitch, val);
+  }
+
   async function fillOutRequiredFields() {
     const nameInput = wrapper.container.querySelector(
       ".workflow-main-details .name-field input"
     );
-    fireEvent.change(nameInput!, { target: { value: "form1" } });
+    await clearAndType(nameInput!, "form1");
 
     await waitFor(() => expect(nameInput).toHaveValue("form1"));
   }
@@ -236,12 +255,14 @@ async function mountForm(
     toggleOrganisms,
     toggleScheduledActions,
     toggleAssociations,
+    toggleCitations,
     colEventSwitch,
     catalogSwitch,
     storageSwitch,
     scheduledActionsSwitch,
     organismsSwitch,
     associationsSwitch,
+    citationsSwitch,
     fillOutRequiredFields,
     submitForm
   };
@@ -476,6 +497,8 @@ const formTemplate: PersistedResource<FormTemplate> = {
           name: "collecting-event-details",
           visible: true,
           items: [
+            { defaultValue: undefined, name: "expedition", visible: false },
+            { defaultValue: undefined, name: "site", visible: false },
             { defaultValue: undefined, name: "habitat", visible: false },
             { defaultValue: undefined, name: "host", visible: false },
             {
@@ -601,12 +624,12 @@ const formTemplate: PersistedResource<FormTemplate> = {
           items: [
             {
               defaultValue: undefined,
-              name: "managedAttributes.attachmentsConfig.allowNew",
+              name: "attachmentsConfig.allowNew",
               visible: false
             },
             {
               defaultValue: undefined,
-              name: "managedAttributes.attachmentsConfig.allowExisting",
+              name: "attachmentsConfig.allowExisting",
               visible: false
             }
           ]
@@ -816,17 +839,17 @@ const formTemplate: PersistedResource<FormTemplate> = {
           items: [
             {
               defaultValue: undefined,
-              name: "associations.associationType",
+              name: "associations[0].associationType",
               visible: false
             },
             {
               defaultValue: undefined,
-              name: "associations.associatedSample",
+              name: "associations[0].associatedSample",
               visible: false
             },
             {
               defaultValue: undefined,
-              name: "associations.remarks",
+              name: "associations[0].remarks",
               visible: false
             }
           ]
@@ -916,7 +939,7 @@ const formTemplate: PersistedResource<FormTemplate> = {
         {
           items: [
             {
-              name: "citations[0].title"
+              name: "citation.title"
             }
           ]
         }
@@ -1235,6 +1258,14 @@ const expected = {
           name: "collecting-event-details",
           visible: true,
           items: [
+            { defaultValue: undefined, name: "expedition", visible: false },
+            { defaultValue: undefined, name: "site", visible: false }
+          ]
+        },
+        {
+          name: "collecting-event-additional-details-section",
+          visible: true,
+          items: [
             { defaultValue: undefined, name: "habitat", visible: false },
             { defaultValue: undefined, name: "host", visible: false },
             {
@@ -1324,16 +1355,6 @@ const expected = {
               defaultValue: undefined,
               name: "geoReferenceAssertions[0].dwcGeoreferenceRemarks",
               visible: false
-            },
-            {
-              defaultValue: [
-                {
-                  dwcDecimalLatitude: "1",
-                  dwcDecimalLongitude: "2"
-                }
-              ],
-              name: "geoReferenceAssertions",
-              visible: false
             }
           ]
         },
@@ -1390,14 +1411,14 @@ const expected = {
           visible: true,
           items: [
             {
-              defaultValue: undefined,
-              name: "managedAttributes.attachmentsConfig.allowNew",
-              visible: false
+              defaultValue: true,
+              name: "attachmentsConfig.allowNew",
+              visible: true
             },
             {
-              defaultValue: undefined,
-              name: "managedAttributes.attachmentsConfig.allowExisting",
-              visible: false
+              defaultValue: true,
+              name: "attachmentsConfig.allowExisting",
+              visible: true
             }
           ]
         }
@@ -1511,11 +1532,6 @@ const expected = {
               defaultValue: undefined,
               name: "organism[0].dwcVernacularName",
               visible: false
-            },
-            {
-              defaultValue: undefined,
-              name: "organism[0].managedAttributes",
-              visible: false
             }
           ]
         },
@@ -1600,7 +1616,28 @@ const expected = {
         {
           name: "organism-managed-attributes-section",
           visible: true,
-          items: []
+          items: [
+            {
+              defaultValue: undefined,
+              name: "organism[0].managedAttributes",
+              visible: true
+            },
+            {
+              defaultValue: undefined,
+              name: "organismManagedAttributesOrder",
+              visible: true
+            },
+            {
+              defaultValue: undefined,
+              name: "organism[0].determination[0].managedAttributes",
+              visible: true
+            },
+            {
+              defaultValue: undefined,
+              name: "determinationManagedAttributesOrder",
+              visible: true
+            }
+          ]
         }
       ]
     },
@@ -1631,17 +1668,17 @@ const expected = {
           items: [
             {
               defaultValue: undefined,
-              name: "associations.associationType",
+              name: "associations[0].associationType",
               visible: false
             },
             {
               defaultValue: undefined,
-              name: "associations.associatedSample",
+              name: "associations[0].associatedSample",
               visible: false
             },
             {
               defaultValue: undefined,
-              name: "associations.remarks",
+              name: "associations[0].remarks",
               visible: false
             }
           ]
@@ -1755,12 +1792,47 @@ const expected = {
       order: 10,
       sections: [
         {
-          name: "citations-general-section",
+          name: "citations-add-section",
           visible: true,
           items: [
             {
               defaultValue: undefined,
-              name: "citations[0].title",
+              name: "citation.doi",
+              visible: false
+            },
+            {
+              defaultValue: undefined,
+              name: "citation.title",
+              visible: false
+            },
+            {
+              defaultValue: undefined,
+              name: "citation.year",
+              visible: false
+            },
+            {
+              defaultValue: undefined,
+              name: "citation.journal",
+              visible: false
+            },
+            {
+              defaultValue: undefined,
+              name: "citation.volume",
+              visible: false
+            },
+            {
+              defaultValue: undefined,
+              name: "citation.pages",
+              visible: false
+            },
+            {
+              defaultValue: undefined,
+              name: "citation.citationRemarks",
+              visible: false
+            },
+            {
+              defaultValue: undefined,
+              name: "authors",
               visible: false
             }
           ]
@@ -1818,14 +1890,14 @@ const expected = {
           visible: true,
           items: [
             {
-              defaultValue: undefined,
+              defaultValue: true,
               name: "attachmentsConfig.allowNew",
-              visible: false
+              visible: true
             },
             {
-              defaultValue: undefined,
+              defaultValue: true,
               name: "attachmentsConfig.allowExisting",
-              visible: false
+              visible: true
             }
           ]
         }
@@ -1895,35 +1967,36 @@ describe("Form template edit page", () => {
     const includeAllCollectingDateInput = wrapper.container.querySelector(
       "#collectingDateLegend > label > input"
     );
-    fireEvent.click(includeAllCollectingDateInput!);
+    await userEvent.click(includeAllCollectingDateInput!);
 
     const verbatimEventDateTimeInput = wrapper.container.querySelector(
       ".verbatimEventDateTime-field input"
     )!;
-    fireEvent.change(verbatimEventDateTimeInput, {
-      target: { value: "test-verbatim-default-datetime" }
-    });
+    await clearAndType(
+      verbatimEventDateTimeInput,
+      "test-verbatim-default-datetime"
+    );
 
     // Set default geo assertion lat/lng:
     const latCheckbox = wrapper.container.querySelector(
       ".dwcDecimalLatitude input[type='checkbox']"
     )!;
-    fireEvent.click(latCheckbox);
+    await userEvent.click(latCheckbox);
 
     const lngCheckbox = wrapper.container.querySelector(
       ".dwcDecimalLongitude input[type='checkbox']"
     )!;
-    fireEvent.click(lngCheckbox);
+    await userEvent.click(lngCheckbox);
 
     const latInput = wrapper.container.querySelector(
       ".dwcDecimalLatitude input[type='text']"
     )!;
-    fireEvent.change(latInput, { target: { value: "1" } });
+    await clearAndType(latInput, "1");
 
     const lngInput = wrapper.container.querySelector(
       ".dwcDecimalLongitude input[type='text']"
     )!;
-    fireEvent.change(lngInput, { target: { value: "2" } });
+    await clearAndType(lngInput, "2");
     await submitForm();
     await waitFor(() => expect(mockOnSaved).toHaveBeenCalledWith(expected));
   });
@@ -1936,5 +2009,165 @@ describe("Form template edit page", () => {
     expect(colEventSwitch).not.toBeChecked();
     expect(catalogSwitch).not.toBeChecked();
     expect(scheduledActionsSwitch).not.toBeChecked();
+  });
+
+  it("Persists the Citation 'Authors' visibility checkbox correctly.", async () => {
+    const { toggleCitations, fillOutRequiredFields, submitForm, wrapper } =
+      await mountForm();
+
+    await fillOutRequiredFields();
+
+    // Enable the Citations component, showing the "Add Citation" sub-form directly:
+    await toggleCitations(true);
+
+    await waitFor(() =>
+      expect(
+        wrapper.container.querySelector(".citation_title-field")
+      ).toBeInTheDocument()
+    );
+
+    const authorsCheckbox = wrapper.container.querySelector(
+      ".authors-section input[type='checkbox']"
+    )!;
+    await userEvent.click(authorsCheckbox);
+
+    await submitForm();
+
+    const savedCitationsComponent =
+      mockOnSaved.mock.calls[0][0].components.find(
+        (comp) => comp.name === "citations-component"
+      );
+    const savedAuthorsItem = savedCitationsComponent?.sections
+      ?.find((section) => section.name === "citations-add-section")
+      ?.items?.find((item) => item.name === "authors");
+
+    expect(savedAuthorsItem?.visible).toEqual(true);
+  });
+
+  it("Persists an explicit 'Allow Existing: false' attachments config, leaving 'Allow New' at its default", async () => {
+    const { submitForm, wrapper } = await mountForm(formTemplate);
+
+    const allowNewCheckbox = wrapper.container.querySelector(
+      "input.allow-new-checkbox"
+    )!;
+    const allowExistingCheckbox = wrapper.container.querySelector(
+      "input.allow-existing-checkbox"
+    )!;
+
+    // Both checkboxes default to checked (allowed), since that's the actual
+    // runtime default when neither option has been configured:
+    expect(allowNewCheckbox).toBeChecked();
+    expect(allowExistingCheckbox).toBeChecked();
+
+    // Uncheck only "Allow Existing", leaving "Allow New" untouched at its default:
+    await userEvent.click(allowExistingCheckbox);
+    await waitFor(() => expect(allowExistingCheckbox).not.toBeChecked());
+
+    await submitForm();
+
+    const savedAttachmentsComponent =
+      mockOnSaved.mock.calls[0][0].components.find(
+        (comp) => comp.name === MATERIAL_SAMPLE_ATTACHMENTS_COMPONENT_NAME
+      );
+    const savedItems = savedAttachmentsComponent?.sections?.find(
+      (section) => section.name === "material-sample-attachments-sections"
+    )?.items;
+    const savedAllowNewItem = savedItems?.find(
+      (item) => item.name === "attachmentsConfig.allowNew"
+    );
+    const savedAllowExistingItem = savedItems?.find(
+      (item) => item.name === "attachmentsConfig.allowExisting"
+    );
+
+    // Both items must stay visible/included in the template so that their default
+    // values are actually applied when the template is used, instead of being
+    // discarded and falling back to allowing both options:
+    expect(savedAllowNewItem?.visible).toEqual(true);
+    expect(savedAllowNewItem?.defaultValue).toEqual(true);
+    expect(savedAllowExistingItem?.visible).toEqual(true);
+    expect(savedAllowExistingItem?.defaultValue).toEqual(false);
+  });
+
+  it("Persists Organism and Determination Managed Attributes selections through a save/reload round-trip.", async () => {
+    const existingTemplateWithOrganismManagedAttributes: PersistedResource<FormTemplate> =
+      {
+        ...formTemplate,
+        components: formTemplate.components?.map((component) =>
+          component.name === ORGANISMS_COMPONENT_NAME
+            ? {
+                ...component,
+                visible: true,
+                sections: component.sections?.map((section) =>
+                  section.name === "organism-managed-attributes-section"
+                    ? {
+                        ...section,
+                        items: [
+                          {
+                            name: "organism[0].managedAttributes",
+                            visible: true,
+                            defaultValue: { attribute_1: "organism value" }
+                          },
+                          {
+                            name: "organismManagedAttributesOrder",
+                            visible: true,
+                            defaultValue: ["attribute_1"]
+                          },
+                          {
+                            name: "organism[0].determination[0].managedAttributes",
+                            visible: true,
+                            defaultValue: {
+                              attribute_1: "determination value"
+                            }
+                          },
+                          {
+                            name: "determinationManagedAttributesOrder",
+                            visible: true,
+                            defaultValue: ["attribute_1"]
+                          }
+                        ]
+                      }
+                    : section
+                )
+              }
+            : component
+        )
+      };
+
+    const { submitForm } = await mountForm(
+      existingTemplateWithOrganismManagedAttributes
+    );
+
+    await submitForm();
+
+    const savedOrganismsComponent =
+      mockOnSaved.mock.calls[0][0].components.find(
+        (comp) => comp.name === ORGANISMS_COMPONENT_NAME
+      );
+    const savedSection = savedOrganismsComponent?.sections?.find(
+      (section) => section.name === "organism-managed-attributes-section"
+    );
+
+    expect(savedSection?.items).toEqual([
+      {
+        name: "organism[0].managedAttributes",
+        visible: true,
+        defaultValue: { attribute_1: "organism value" }
+      },
+      {
+        name: "organismManagedAttributesOrder",
+        visible: true,
+        defaultValue: ["attribute_1"]
+      },
+      {
+        name: "organism[0].determination[0].managedAttributes",
+        visible: true,
+        defaultValue: { attribute_1: "determination value" }
+      },
+      {
+        name: "determinationManagedAttributesOrder",
+        visible: true,
+        defaultValue: ["attribute_1"]
+      }
+    ]);
   });
 });

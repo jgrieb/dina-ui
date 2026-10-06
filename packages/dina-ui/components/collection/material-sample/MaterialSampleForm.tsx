@@ -51,7 +51,6 @@ import {
 } from "../../../types/collection-api";
 import { AllowAttachmentsConfig } from "../../object-store";
 import { AssociationsField } from "../AssociationsField";
-import { CollectingEventBriefDetails } from "../collecting-event/CollectingEventBriefDetails";
 import { TabbedResourceLinker } from "../TabbedResourceLinker";
 import { MaterialSampleBreadCrumb } from "./MaterialSampleBreadCrumb";
 import { MaterialSampleIdentifiersSection } from "./MaterialSampleIdentifiersSection";
@@ -66,6 +65,7 @@ import { CollectionSelectSection } from "../CollectionSelectSection";
 import { ShowParentAttributesField } from "./ShowParentAttributesField";
 import { SaveAndCopyToNextSuccessAlert } from "../SaveAndCopyToNextSuccessAlert";
 import { ParentSelectSection } from "../ParentSelectSection";
+import { COLLECTION_MANAGED_ATTRIBUTE_ID } from "@dina-ui/components/controlled-vocabulary/controlledVocabularyItemUtils";
 
 export interface VisibleManagedAttributesConfig {
   materialSample?: string[];
@@ -212,7 +212,12 @@ export function MaterialSampleForm({
     colEventId,
     setColEventId,
     onSubmit,
-    loading
+    loading,
+    setIsCreatingNewColEvent,
+    unlinkCollectingEvent,
+    setUnlinkCollectingEvent,
+    overrideCollectingEvent,
+    setOverrideCollectingEvent
   } = materialSampleSaveHook ?? materialSampleSaveResponse;
 
   const copyFromNextSample = useCopyToNextSample();
@@ -256,26 +261,22 @@ export function MaterialSampleForm({
         />
       ),
     [MATERIAL_SAMPLE_INFO_COMPONENT_NAME]: (id) =>
-      !reduceRendering && (
-        <MaterialSampleInfoSection
-          id={id}
-          visibleManagedAttributeKeys={visibleManagedAttributeKeys}
-        />
-      ),
+      !reduceRendering && <MaterialSampleInfoSection id={id} />,
     [COLLECTING_EVENT_COMPONENT_NAME]: (id) =>
       dataComponentState.enableCollectingEvent && (
         <TabbedResourceLinker<CollectingEvent>
           fieldSetId={id}
           hideLinkerTab={hideLinkerTab}
+          hideCreateNewTab={isBulkEditAllTab}
           legend={<DinaMessage id="collectingEvent" />}
-          briefDetails={(colEvent) => (
-            <CollectingEventBriefDetails collectingEvent={colEvent} />
-          )}
           linkerTabContent={
             reduceRendering ? null : (
               <CollectingEventLinker
                 onCollectingEventSelect={(colEventToLink) => {
                   setColEventId(colEventToLink.id);
+                  setIsCreatingNewColEvent(false);
+                  setUnlinkCollectingEvent(false);
+                  setOverrideCollectingEvent(true);
                 }}
               />
             )
@@ -288,6 +289,22 @@ export function MaterialSampleForm({
           resourceId={colEventId}
           fieldName="collectingEvent"
           targetType="materialSample"
+          onTabSelect={(index) => {
+            // On the "Edit All" bulk tab, "Create New" tab doesn't exist at all
+            if (isBulkEditAllTab) {
+              setIsCreatingNewColEvent(false);
+              return;
+            }
+
+            // Depending if an existing collecting event is already linked determines what index the "Create new" tab is at.
+            const hasLinkedEvent = Boolean(colEventId);
+            const createNewTabIndex = hasLinkedEvent ? 1 : 0;
+
+            setIsCreatingNewColEvent(index === createNewTabIndex);
+          }}
+          setUnlinkCollectingEvent={setUnlinkCollectingEvent}
+          unlinkCollectingEvent={unlinkCollectingEvent}
+          overrideCollectingEvent={overrideCollectingEvent}
         />
       ),
     [PREPARATIONS_COMPONENT_NAME]: (id) =>
@@ -399,6 +416,7 @@ export function MaterialSampleForm({
                 valuesPath="managedAttributes"
                 managedAttributeApiPath="collection-api/controlled-vocabulary-item"
                 managedAttributeComponent="MATERIAL_SAMPLE"
+                controlledVocabularyId={COLLECTION_MANAGED_ATTRIBUTE_ID}
                 fieldSetProps={{
                   id,
                   legend: <DinaMessage id="materialSampleManagedAttributes" />
@@ -538,25 +556,25 @@ export function MaterialSampleForm({
       onSubmit={onSubmit}
       isBulkEditAllTab={isBulkEditAllTab}
     >
+      {buttonBar}
       {!initialValues.id && !disableAutoNamePrefix && <SetDefaultSampleName />}
       {copyFromNextSample && (
         <>
+          <h1 id="wb-cont">
+            <DinaMessage id={"addMaterialSampleTitle"} />
+          </h1>
           <SaveAndCopyToNextSuccessAlert
-            id={copyFromNextSample.lastCreatedId ?? ""}
+            id={copyFromNextSample.copyFromId ?? ""}
             displayName={
               !!copyFromNextSample.originalSample.materialSampleName?.length
                 ? copyFromNextSample.originalSample.materialSampleName
-                : copyFromNextSample.lastCreatedId ?? ""
+                : copyFromNextSample.copyFromId ?? ""
             }
             entityPath={"collection/material-sample"}
             dataComponentState={dataComponentState}
           />
-          <h1 id="wb-cont">
-            <DinaMessage id={"addMaterialSampleTitle"} />
-          </h1>
         </>
       )}
-      {buttonBar}
       {formLayout}
     </DinaForm>
   );

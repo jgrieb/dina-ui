@@ -1,15 +1,26 @@
-import { InputResource, KitsuResourceLink } from "kitsu";
+import { InputResource, KitsuResourceLink, PersistedResource } from "kitsu";
 import { MaterialSampleForm, nextSampleInitialValues } from "../../..";
-import { mountWithAppContext, waitForLoadingToDisappear } from "common-ui";
 import {
+  mountWithAppContext,
+  waitForLoadingToDisappear,
+  clearAndType
+} from "common-ui";
+import {
+  ASSOCIATIONS_COMPONENT_NAME,
+  CITATIONS_COMPONENT_NAME,
+  COLLECTING_EVENT_COMPONENT_NAME,
+  MANAGED_ATTRIBUTES_COMPONENT_NAME,
   blankMaterialSample,
   CollectingEvent,
+  FormTemplate,
   MaterialSample
 } from "../../../../types/collection-api";
-import { fireEvent, waitFor, screen, within } from "@testing-library/react";
+import { waitFor, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import "@testing-library/jest-dom";
 import { useSearchWsCustomQuery } from "../../../../../common-ui/lib/search/useSearchWsCustomQuery";
+import MaterialSampleEditPage from "@dina-ui/pages/collection/material-sample/edit";
+import { useRouter } from "next/router";
 
 // Mock out the dynamic component, which should only be rendered in the browser
 jest.mock("next/dynamic", () => () => {
@@ -17,6 +28,13 @@ jest.mock("next/dynamic", () => () => {
     return <div>Mock dynamic component</div>;
   };
 });
+
+const routerPushMock = jest.fn();
+
+// Mock the next router
+jest.mock("next/router", () => ({
+  useRouter: jest.fn()
+}));
 
 /**
  * Reusable mock block for tests that render components using `useSearchWsCustomQuery`.
@@ -154,6 +172,20 @@ function testMaterialSample(): InputResource<MaterialSample> {
   };
 }
 
+function testCopiedMaterialSample(): InputResource<MaterialSample> {
+  return {
+    id: "2",
+    type: "material-sample",
+    group: "test group",
+    materialSampleName: "Sample1",
+    collectingEvent: {
+      id: "1",
+      type: "collecting-event"
+    },
+    ...blankMaterialSample()
+  };
+}
+
 function testMaterialSampleNoCollectingEvent(): InputResource<MaterialSample> {
   return {
     id: "1",
@@ -192,29 +224,177 @@ const mockGeographicSearchResults = [
   }
 ];
 
+/**
+ * A Form Template used to test "applying" a saved Form Template when creating a new Material
+ * Sample: both the default value population (useMaterialSampleFormTemplateSelectState /
+ * useMaterialSampleFormTemplateProps) and the field-visibility hiding (FieldWrapper's
+ * disabledByFormTemplate) driven by the same FormTemplate resource.
+ *
+ * Deliberately mixes visible:true/visible:false on sibling fields within the same section
+ * (e.g. expedition shown but site hidden) to prove per-field granularity works.
+ */
+const TEST_APPLY_FORM_TEMPLATE_ID = "test-apply-form-template-uuid";
+const TEST_APPLY_FORM_TEMPLATE: PersistedResource<FormTemplate> = {
+  id: TEST_APPLY_FORM_TEMPLATE_ID,
+  type: "form-template",
+  name: "Test Apply Form Template",
+  group: "aafc",
+  viewConfiguration: { type: "material-sample-form-template" } as any,
+  components: [
+    {
+      name: MANAGED_ATTRIBUTES_COMPONENT_NAME,
+      visible: true,
+      order: 0,
+      sections: [
+        {
+          name: "managed-attributes-section",
+          visible: true,
+          items: [
+            {
+              name: "managedAttributes",
+              visible: true,
+              defaultValue: { attribute_1: "default attribute 1 value" }
+            },
+            {
+              name: "managedAttributesOrder",
+              visible: true,
+              defaultValue: ["attribute_1", "attribute_2"]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      name: COLLECTING_EVENT_COMPONENT_NAME,
+      visible: true,
+      order: 1,
+      sections: [
+        {
+          name: "collecting-event-details",
+          visible: true,
+          items: [
+            {
+              name: "expedition",
+              visible: true,
+              defaultValue: {
+                id: "expedition-1",
+                type: "expedition",
+                name: "Test Expedition"
+              }
+            },
+            // Site is intentionally left hidden, to prove per-field granularity
+            // within the same section as the (visible) expedition field above:
+            { name: "site", visible: false }
+          ]
+        },
+        {
+          // Nothing in Georeferencing is checked: every field is hidden
+          name: "georeferencing-section",
+          visible: true,
+          items: [
+            {
+              name: "geoReferenceAssertions[0].dwcDecimalLatitude",
+              visible: false
+            },
+            {
+              name: "geoReferenceAssertions[0].dwcDecimalLongitude",
+              visible: false
+            },
+            { name: "geoReferenceAssertions", visible: false }
+          ]
+        }
+      ]
+    },
+    {
+      name: ASSOCIATIONS_COMPONENT_NAME,
+      visible: true,
+      order: 2,
+      sections: [
+        {
+          name: "associations-material-sample-section",
+          visible: true,
+          items: [
+            {
+              name: "associations[0].associationType",
+              visible: true,
+              defaultValue: "host"
+            },
+            { name: "associations[0].associatedSample", visible: false },
+            { name: "associations[0].remarks", visible: false }
+          ]
+        }
+      ]
+    },
+    {
+      name: CITATIONS_COMPONENT_NAME,
+      visible: true,
+      order: 3,
+      sections: [
+        {
+          name: "citations-add-section",
+          visible: true,
+          items: [
+            {
+              name: "citation.title",
+              visible: true,
+              defaultValue: "Default Paper Title"
+            },
+            { name: "citation.doi", visible: false }
+          ]
+        }
+      ]
+    },
+    {
+      name: "material-sample-attachments-component",
+      visible: true,
+      order: 4,
+      sections: [
+        {
+          name: "material-sample-attachments-sections",
+          visible: true,
+          items: [
+            {
+              name: "attachmentsConfig.allowNew",
+              visible: true,
+              defaultValue: true
+            },
+            {
+              name: "attachmentsConfig.allowExisting",
+              visible: true,
+              defaultValue: false
+            }
+          ]
+        }
+      ]
+    }
+  ]
+};
+
 const mockGet = jest.fn<any, any>(async (path, params) => {
   switch (path) {
     case "collection-api/controlled-vocabulary-item":
-      // Handle filter-based lookups used by useManagedAttributeQueries
-      if (params?.filter?.key?.EQ === "attribute_1") {
+      // Handle filter-based lookups used by useBulkManagedAttributes
+      if (params?.filter?.key?.EQ || params?.filter?.key?.IN) {
+        const keys = params.filter.key.EQ
+          ? [params.filter.key.EQ]
+          : params.filter.key.IN.split(",");
         return Promise.resolve({
-          data: [{ id: "1", key: "attribute_1", name: "Attribute 1" }]
-        });
-      }
-      if (params?.filter?.key?.EQ === "attribute_2") {
-        return Promise.resolve({
-          data: [{ id: "2", key: "attribute_2", name: "Attribute 2" }]
-        });
-      }
-      if (params?.filter?.key?.EQ === "attribute_3") {
-        return Promise.resolve({
-          data: [{ id: "3", key: "attribute_3", name: "Attribute 3" }]
+          data: keys.map((key) => ({
+            id: key.replace("attribute_", ""),
+            key,
+            name: `Attribute ${key.replace("attribute_", "")}`
+          }))
         });
       }
       // return all for the multiselect dropdown
       return { data: [], meta: { totalResourceCount: 0 } };
     case "collection-api/collecting-event":
-      return { data: [testCollectionEvent()] };
+      return {
+        data: [
+          testCollectionEvent(),
+          testCollectionEventWithGeographicalPlace()
+        ]
+      };
     case "collection-api/collecting-event/1?include=collectors,attachment,collectionMethod,protocol,expedition,site":
       return { data: testCollectionEvent() };
     case "collection-api/collecting-event/2?include=collectors,attachment,collectionMethod,protocol,expedition,site":
@@ -231,6 +411,8 @@ const mockGet = jest.fn<any, any>(async (path, params) => {
       };
     case "collection-api/material-sample/1":
       return { data: testMaterialSample() };
+    case "collection-api/material-sample/2":
+      return { data: testCopiedMaterialSample() };
     case "collection-api/material-sample":
       return {
         data: [
@@ -271,6 +453,8 @@ const mockGet = jest.fn<any, any>(async (path, params) => {
           }
         ]
       };
+    case `collection-api/form-template/${TEST_APPLY_FORM_TEMPLATE_ID}`:
+      return { data: TEST_APPLY_FORM_TEMPLATE };
     default:
       return { data: [], meta: { totalResourceCount: 0 } };
   }
@@ -295,14 +479,25 @@ const mockSave = jest.fn<any, any>(async (saves) => {
   });
 });
 
+const mockAxiosGet = jest.fn<any, any>(async () => ({
+  data: { hits: { total: { value: 0 }, hits: [] } }
+}));
+const mockAxiosPost = jest.fn<any, any>(async () => ({
+  data: { hits: { total: { value: 0 }, hits: [] } }
+}));
+
 const testCtx = {
   apiContext: {
     save: mockSave,
     apiClient: {
-      get: mockGet
+      get: mockGet,
+      axios: {
+        get: mockAxiosGet,
+        post: mockAxiosPost
+      }
     }
   }
-};
+} as any;
 
 const mockOnSaved = jest.fn();
 
@@ -322,6 +517,12 @@ describe("Material Sample Edit Page", () => {
     window.fetch = jest
       .fn()
       .mockResolvedValue(mockFetchResponse(mockGeographicSearchResults));
+
+    (useRouter as jest.Mock).mockReturnValue({
+      query: {},
+      push: routerPushMock,
+      pathname: "/collection/material-sample/edit"
+    });
   });
 
   it("Submits a new material-sample with a new CollectingEvent.", async () => {
@@ -336,9 +537,11 @@ describe("Material Sample Edit Page", () => {
       ".enable-collecting-event .react-switch-bg"
     );
     if (!collectingEventToggle) {
-      fail("Collecting event toggle needs to exist at this point.");
+      throw new Error("Collecting event toggle needs to exist at this point.");
     }
-    fireEvent.click(collectingEventToggle[0]);
+    await userEvent.click(collectingEventToggle[0]);
+    await waitForLoadingToDisappear();
+
     await waitFor(() =>
       expect(
         wrapper.getByLabelText(/verbatim event datetime/i)
@@ -386,9 +589,13 @@ describe("Material Sample Edit Page", () => {
         [
           {
             resource: {
-              collectingEvent: {
-                id: "11111111-1111-1111-1111-111111111111",
-                type: "collecting-event"
+              relationships: {
+                collectingEvent: {
+                  data: {
+                    id: "11111111-1111-1111-1111-111111111111",
+                    type: "collecting-event"
+                  }
+                }
               },
               materialSampleName: "test-material-sample-id",
               publiclyReleasable: false, // Default value
@@ -424,7 +631,7 @@ describe("Material Sample Edit Page", () => {
       ".parent-material-sample-field"
     );
     if (!parentField) {
-      fail("Parent select field not found in form.");
+      throw new Error("Parent select field not found in form.");
     }
 
     const combo = within(parentField as any).getByRole("combobox");
@@ -467,15 +674,18 @@ describe("Material Sample Edit Page", () => {
       ".enable-collecting-event .react-switch-bg"
     );
     if (!collectingEventToggle) {
-      fail("Collecting event toggle needs to exist at this point.");
+      throw new Error("Collecting event toggle needs to exist at this point.");
     }
-    fireEvent.click(collectingEventToggle[0]);
+    await userEvent.click(collectingEventToggle[0]);
+    await waitForLoadingToDisappear();
 
+    // Click the link existing option instead of creating a new one.
+    await userEvent.click(wrapper.getByRole("tab", { name: /link existing/i }));
     await waitForLoadingToDisappear();
 
     await waitFor(() =>
       expect(
-        wrapper.getByRole("button", { name: /select/i })
+        wrapper.getAllByRole("button", { name: /select/i })[0]
       ).toBeInTheDocument()
     );
 
@@ -485,7 +695,9 @@ describe("Material Sample Edit Page", () => {
     );
 
     // Select an existing collecting event.
-    await userEvent.click(wrapper.getByRole("button", { name: /select/i }));
+    await userEvent.click(
+      wrapper.getAllByRole("button", { name: /select/i })[0]
+    );
     await waitFor(() =>
       expect(wrapper.getByRole("button", { name: /save/i })).toBeInTheDocument()
     );
@@ -502,12 +714,244 @@ describe("Material Sample Edit Page", () => {
               type: "material-sample",
               publiclyReleasable: false,
               materialSampleName: "test-material-sample-id",
-              collectingEvent: { id: "1", type: "collecting-event" }
+              relationships: {
+                collectingEvent: {
+                  data: {
+                    id: "1",
+                    type: "collecting-event"
+                  }
+                }
+              }
             },
             type: "material-sample"
           }
         ],
         { apiBaseUrl: "/collection-api" }
+      ]
+    ]);
+  });
+
+  it("Discards create-new collecting event changes and links to existing collecting event when toggled back.", async () => {
+    const wrapper = mountWithAppContext(
+      <MaterialSampleForm
+        materialSample={testMaterialSample()}
+        onSaved={mockOnSaved}
+      />,
+      testCtx
+    );
+    await waitForLoadingToDisappear();
+
+    await waitFor(() =>
+      expect(
+        wrapper.getByRole("tab", { name: /create new/i })
+      ).toBeInTheDocument()
+    );
+
+    // Click "Create new" tab/button for a collecting event
+    await userEvent.click(wrapper.getByRole("tab", { name: /create new/i }));
+    await waitFor(() =>
+      expect(
+        wrapper.getByLabelText(/verbatim event datetime/i)
+      ).toBeInTheDocument()
+    );
+
+    // Type some values into the create new form fields (2nd input since it's the create new form.)
+    await userEvent.type(
+      wrapper.getByLabelText(/verbatim event datetime/i),
+      "2026-06-06T12:00"
+    );
+
+    // Switch back to the existing collecting event selection view
+    const selectExistingButton = wrapper.getByRole("tab", {
+      name: /linked collecting event/i
+    });
+    await userEvent.click(selectExistingButton);
+
+    // Make an unrelated change to the material sample.
+    await clearAndType(
+      wrapper.getByRole("textbox", { name: /primary id/i }),
+      "test-material-sample-id"
+    );
+
+    // Save the material sample form
+    await userEvent.click(wrapper.getByRole("button", { name: /save/i }));
+    await waitFor(() => expect(mockSave).toHaveBeenCalledTimes(1));
+
+    // Verify that it only saves the material-sample linked to the *existing* collecting event
+    // and ignores/discards the stale "2026-06-06T12:00" verbatimEventDateTime data.
+    expect(mockSave.mock.calls).toEqual([
+      [
+        [
+          {
+            resource: {
+              type: "material-sample",
+              id: "1",
+              materialSampleName: "test-material-sample-id"
+            },
+            type: "material-sample"
+          }
+        ],
+        { apiBaseUrl: "/collection-api" }
+      ]
+    ]);
+  });
+
+  it("Collecting event exists already, create a new one and replace the collecting event link", async () => {
+    const wrapper = mountWithAppContext(
+      <MaterialSampleForm
+        materialSample={testMaterialSample()}
+        onSaved={mockOnSaved}
+      />,
+      testCtx
+    );
+    await waitForLoadingToDisappear();
+
+    await waitFor(() =>
+      expect(
+        wrapper.getByRole("tab", { name: /create new/i })
+      ).toBeInTheDocument()
+    );
+
+    // Click "Create new" tab/button for a collecting event
+    await userEvent.click(wrapper.getByRole("tab", { name: /create new/i }));
+
+    // Ensure the warning message is appearing to indiciate that this action will override the existing
+    // collecting event link.
+    expect(
+      wrapper.getByText(
+        /creating a new collecting event to link to this material sample will replace any currently linked collecting events upon saving\./i
+      )
+    ).toBeInTheDocument();
+
+    // Enter a new collection number for this record.
+    const collectionNumberField = wrapper.getAllByRole("textbox", {
+      name: /collection number/i
+    })[1];
+    await clearAndType(collectionNumberField, "new collection number 123");
+
+    // Save the material sample form
+    await userEvent.click(wrapper.getByRole("button", { name: /save/i }));
+    await waitFor(() => expect(mockSave).toHaveBeenCalledTimes(2));
+
+    // New collecting event should be created.
+    // Then attach that new collecting event to the material sample, replacing the existing link.
+    expect(mockSave.mock.calls).toEqual([
+      [
+        [
+          {
+            resource: {
+              dwcVerbatimCoordinateSystem: null,
+              dwcVerbatimSRS: "WGS84 (EPSG:4326)",
+              geoReferenceAssertions: [
+                {
+                  isPrimary: true
+                }
+              ],
+              group: "aafc",
+              publiclyReleasable: false,
+              otherRecordNumbers: ["new collection number 123"],
+              type: "collecting-event"
+            },
+            type: "collecting-event"
+          }
+        ],
+        {
+          apiBaseUrl: "/collection-api"
+        }
+      ],
+      [
+        [
+          {
+            resource: {
+              relationships: {
+                collectingEvent: {
+                  data: {
+                    id: "11111111-1111-1111-1111-111111111111",
+                    type: "collecting-event"
+                  }
+                }
+              },
+              id: "1",
+              type: "material-sample"
+            },
+            type: "material-sample"
+          }
+        ],
+        {
+          apiBaseUrl: "/collection-api"
+        }
+      ]
+    ]);
+  });
+
+  it("Collecting event exists already, attach an existing one and replace the collecting event link", async () => {
+    const wrapper = mountWithAppContext(
+      <MaterialSampleForm
+        materialSample={testMaterialSample()}
+        onSaved={mockOnSaved}
+      />,
+      testCtx
+    );
+    await waitForLoadingToDisappear();
+
+    await waitFor(() =>
+      expect(
+        wrapper.getByRole("tab", { name: /create new/i })
+      ).toBeInTheDocument()
+    );
+
+    // Click "Link existing" tab/button for a collecting event
+    await userEvent.click(wrapper.getByRole("tab", { name: /link existing/i }));
+    await waitForLoadingToDisappear();
+
+    // Click "Select" to attach that specific collecting event to this material sample.
+    await userEvent.click(
+      wrapper.getAllByRole("button", { name: /select/i })[1]
+    );
+
+    // Should see message indicating that it will replace the previously linked collecting event.
+    await waitFor(() => {
+      expect(
+        wrapper.getByText(
+          /the selected collecting event will replace the previously linked collecting event for this material sample when saved\./i
+        )
+      ).toBeInTheDocument();
+    });
+
+    // Should also be in read only mode:
+    await waitFor(() => {
+      expect(
+        wrapper.getByText(/linked collecting event:/i)
+      ).toBeInTheDocument();
+    });
+
+    // Save the material sample form
+    await userEvent.click(wrapper.getByRole("button", { name: /save/i }));
+    await waitFor(() => expect(mockSave).toHaveBeenCalledTimes(1));
+
+    // Expect the collecting event to be linked to that collecting event selected.
+    expect(mockSave.mock.calls).toEqual([
+      [
+        [
+          {
+            resource: {
+              id: "1",
+              relationships: {
+                collectingEvent: {
+                  data: {
+                    id: "2",
+                    type: "collecting-event"
+                  }
+                }
+              },
+              type: "material-sample"
+            },
+            type: "material-sample"
+          }
+        ],
+        {
+          apiBaseUrl: "/collection-api"
+        }
       ]
     ]);
   });
@@ -521,22 +965,19 @@ describe("Material Sample Edit Page", () => {
       testCtx
     );
     await waitForLoadingToDisappear();
+
+    const editAllVerbatimEventDateTime = wrapper.getAllByRole("textbox", {
+      name: /verbatim event datetime/i
+    })[0];
     await waitFor(() =>
-      expect(
-        wrapper.getByRole("textbox", { name: /verbatim event datetime/i })
-      ).toHaveDisplayValue("2021-04-13")
+      expect(editAllVerbatimEventDateTime).toHaveDisplayValue("2021-04-13")
     );
 
     // Existing CollectingEvent should show up:
-    expect(
-      wrapper.getByRole("textbox", { name: /verbatim event datetime/i })
-    ).toHaveDisplayValue("2021-04-13");
+    expect(editAllVerbatimEventDateTime).toHaveDisplayValue("2021-04-13");
 
     // Update the Primary ID.
-    await userEvent.clear(
-      wrapper.getByRole("textbox", { name: /primary id/i })
-    );
-    await userEvent.type(
+    await clearAndType(
       wrapper.getByRole("textbox", { name: /primary id/i }),
       "test-material-sample-id"
     );
@@ -576,9 +1017,11 @@ describe("Material Sample Edit Page", () => {
       ".enable-collecting-event .react-switch-bg"
     );
     if (!collectingEventToggle) {
-      fail("Collecting event toggle needs to exist at this point.");
+      throw new Error("Collecting event toggle needs to exist at this point.");
     }
-    fireEvent.click(collectingEventToggle[0]);
+    await userEvent.click(collectingEventToggle[0]);
+    await waitForLoadingToDisappear();
+
     await waitFor(() =>
       expect(
         wrapper.getByRole("textbox", { name: /verbatim event datetime/i })
@@ -590,10 +1033,7 @@ describe("Material Sample Edit Page", () => {
       wrapper.getByRole("textbox", { name: /verbatim event datetime/i }),
       "2019-12-21T16:00"
     );
-    await userEvent.clear(
-      wrapper.getByRole("textbox", { name: /primary id/i })
-    );
-    await userEvent.type(
+    await clearAndType(
       wrapper.getByRole("textbox", { name: /primary id/i }),
       "test-material-sample-id"
     );
@@ -630,9 +1070,13 @@ describe("Material Sample Edit Page", () => {
         [
           {
             resource: {
-              collectingEvent: {
-                id: "11111111-1111-1111-1111-111111111111",
-                type: "collecting-event"
+              relationships: {
+                collectingEvent: {
+                  data: {
+                    id: "11111111-1111-1111-1111-111111111111",
+                    type: "collecting-event"
+                  }
+                }
               },
               id: "1",
               materialSampleName: "test-material-sample-id",
@@ -646,7 +1090,7 @@ describe("Material Sample Edit Page", () => {
     ]);
   });
 
-  it.skip("Lets you remove the attached Collecting Event.", async () => {
+  it("Lets you unlink the attached Collecting Event.", async () => {
     const wrapper = mountWithAppContext(
       <MaterialSampleForm
         materialSample={testMaterialSample()}
@@ -654,88 +1098,59 @@ describe("Material Sample Edit Page", () => {
       />,
       testCtx
     );
+    await waitForLoadingToDisappear();
+
     await waitFor(() =>
       expect(
-        wrapper.getByRole("textbox", { name: /verbatim event datetime/i })
+        wrapper.getAllByRole("textbox", { name: /verbatim event datetime/i })[0]
       ).toHaveDisplayValue("2021-04-13")
     );
 
     // Existing CollectingEvent should show up:
     expect(
-      wrapper.getByRole("textbox", { name: /verbatim event datetime/i })
+      wrapper.getAllByRole("textbox", { name: /verbatim event datetime/i })[0]
     ).toHaveDisplayValue("2021-04-13");
 
     // Remove the existing Collecting Event.
-    await userEvent.click(wrapper.getByRole("button", { name: /detach/i }));
-    await waitFor(() =>
-      expect(
-        wrapper.getByRole("textbox", { name: /verbatim event datetime/i })
-      ).toHaveDisplayValue("")
-    );
+    await userEvent.click(wrapper.getByRole("button", { name: /unlink/i }));
 
-    // Existing CollectingEvent should be gone:
+    // Are you sure?
     expect(
-      wrapper.getByRole("textbox", { name: /verbatim event datetime/i })
-    ).toHaveDisplayValue("");
+      wrapper.getByText(/unlink collecting events\?/i)
+    ).toBeInTheDocument();
+    await userEvent.click(wrapper.getByRole("button", { name: /yes/i }));
 
-    // Set the new Collecting Event's verbatimEventDateTime:
-    await userEvent.type(
-      wrapper.getByRole("textbox", { name: /verbatim event datetime/i }),
-      "2019-12-21T16:00"
-    );
-
-    // Set the additional collection numbers in the collecting event.
-    await userEvent.type(
-      wrapper.getByRole("textbox", {
-        name: "Additional Collection Numbers Other numbers or identifiers associated with the collecting event that help to distinguish it. Do NOT include specimen-based identifiers such as accession numbers. (One value per line) Write one value per line. Press enter while typing in the field to add a new line."
-      }),
-      "1\n2\n3"
-    );
+    // Message to indicating that the collecting event will be unlinked.
+    expect(
+      wrapper.getByText(
+        /collecting event\(s\) will be unlinked from the material samples when the form is saved\./i
+      )
+    ).toBeInTheDocument();
 
     // Save
     await userEvent.click(wrapper.getByRole("button", { name: /save/i }));
-    await waitFor(() => expect(mockSave).toHaveBeenCalledTimes(2));
+    await waitFor(() => expect(mockSave).toHaveBeenCalledTimes(1));
 
+    // Expect the network request to unlink the record.
     expect(mockSave.mock.calls).toEqual([
       [
-        // New collecting-event created:
         [
           {
             resource: {
-              group: "aafc",
-              otherRecordNumbers: ["1", "2", "3"],
-              dwcVerbatimCoordinateSystem: null,
-              dwcVerbatimSRS: "WGS84 (EPSG:4326)",
-              geoReferenceAssertions: [
-                {
-                  isPrimary: true
-                }
-              ],
-              verbatimEventDateTime: "2019-12-21T16:00",
-              publiclyReleasable: false, // Default Value
-              type: "collecting-event"
-            },
-            type: "collecting-event"
-          }
-        ],
-        { apiBaseUrl: "/collection-api" }
-      ],
-      [
-        // Existing material-sample updated:
-        [
-          {
-            resource: {
-              collectingEvent: {
-                id: "11111111-1111-1111-1111-111111111111",
-                type: "collecting-event"
-              },
               id: "1",
+              relationships: {
+                collectingEvent: {
+                  data: null
+                }
+              },
               type: "material-sample"
             },
             type: "material-sample"
           }
         ],
-        { apiBaseUrl: "/collection-api" }
+        {
+          apiBaseUrl: "/collection-api"
+        }
       ]
     ]);
   });
@@ -1055,9 +1470,9 @@ describe("Material Sample Edit Page", () => {
       ".enable-organisms .react-switch-bg"
     );
     if (!organismToggle) {
-      fail("organism toggle needs to exist at this point.");
+      throw new Error("organism toggle needs to exist at this point.");
     }
-    fireEvent.click(organismToggle[0]);
+    await userEvent.click(organismToggle[0]);
     await waitFor(() =>
       expect(
         wrapper.getByRole("button", { name: /add new determination/i })
@@ -1071,7 +1486,7 @@ describe("Material Sample Edit Page", () => {
     await waitFor(() =>
       expect(
         wrapper.getByRole("textbox", {
-          name: /verbatim scientific name × insert hybrid symbol/i
+          name: /verbatim scientific name/i
         })
       ).toBeInTheDocument()
     );
@@ -1079,7 +1494,7 @@ describe("Material Sample Edit Page", () => {
     async function fillOutDetermination(num: number) {
       await userEvent.type(
         wrapper.getByRole("textbox", {
-          name: /verbatim scientific name × insert hybrid symbol/i
+          name: /verbatim scientific name/i
         }),
         `test-name-${num}`
       );
@@ -1390,9 +1805,9 @@ describe("Material Sample Edit Page", () => {
       ".enable-associations .react-switch-bg"
     );
     if (!associationToggle) {
-      fail("Association toggle needs to exist at this point.");
+      throw new Error("Association toggle needs to exist at this point.");
     }
-    fireEvent.click(associationToggle[0]);
+    await userEvent.click(associationToggle[0]);
     await waitFor(() =>
       expect(
         wrapper.getByRole("button", { name: /search\.\.\./i })
@@ -1444,9 +1859,9 @@ describe("Material Sample Edit Page", () => {
       ".enable-associations .react-switch-bg"
     );
     if (!associationToggle) {
-      fail("Association toggle needs to exist at this point.");
+      throw new Error("Association toggle needs to exist at this point.");
     }
-    fireEvent.click(associationToggle[0]);
+    await userEvent.click(associationToggle[0]);
     await waitFor(() =>
       expect(
         wrapper.getByRole("button", { name: /search\.\.\./i })
@@ -1503,9 +1918,9 @@ describe("Material Sample Edit Page", () => {
       ".enable-organisms .react-switch-bg"
     );
     if (!organismToggle) {
-      fail("organism toggle needs to exist at this point.");
+      throw new Error("organism toggle needs to exist at this point.");
     }
-    fireEvent.click(organismToggle[0]);
+    await userEvent.click(organismToggle[0]);
     await waitFor(() =>
       expect(
         wrapper.getByRole("textbox", { name: /life stage/i })
@@ -1660,7 +2075,7 @@ describe("Material Sample Edit Page", () => {
     const expandButtons =
       wrapper.container.querySelectorAll(".expand-organism");
     if (!expandButtons || expandButtons.length !== 3) {
-      fail("Missing 3 expand buttons in the organism section.");
+      throw new Error("Missing 3 expand buttons in the organism section.");
     }
     expandButtons.forEach(async (button) => {
       await userEvent.click(button);
@@ -1677,14 +2092,10 @@ describe("Material Sample Edit Page", () => {
     const lastLifestageField = wrapper.getAllByRole("textbox", {
       name: /life stage/i
     })[2];
-    await userEvent.clear(lastLifestageField);
-    await userEvent.type(lastLifestageField, "This should be removed...");
+    await clearAndType(lastLifestageField, "This should be removed...");
 
     // Reduce the organisms to 1:
-    await userEvent.clear(
-      wrapper.getByRole("spinbutton", { name: /organisms quantity/i })
-    );
-    await userEvent.type(
+    await clearAndType(
       wrapper.getByRole("spinbutton", { name: /organisms quantity/i }),
       "1"
     );
@@ -1873,8 +2284,7 @@ describe("Material Sample Edit Page", () => {
     expect(organismQuantity).toHaveDisplayValue("1");
 
     // Set to 0.
-    await userEvent.clear(organismQuantity);
-    await userEvent.type(organismQuantity, "0");
+    await clearAndType(organismQuantity, "0");
 
     // Save the form
     await userEvent.click(wrapper.getByRole("button", { name: /save/i }));
@@ -2030,14 +2440,10 @@ describe("Material Sample Edit Page", () => {
     expect(organismQuantity).toHaveDisplayValue("1");
 
     // Change it to 3.
-    await userEvent.clear(organismQuantity);
-    await userEvent.type(organismQuantity, "3");
+    await clearAndType(organismQuantity, "3");
 
     // Update the life stage.
-    await userEvent.clear(
-      wrapper.getByRole("textbox", { name: /life stage/i })
-    );
-    await userEvent.type(
+    await clearAndType(
       wrapper.getByRole("textbox", { name: /life stage/i }),
       "common-life-stage"
     );
@@ -2180,10 +2586,7 @@ describe("Material Sample Edit Page", () => {
     await userEvent.click(expandButtons[2]);
 
     // Edit the lifeStage field:
-    await userEvent.clear(
-      wrapper.getByRole("textbox", { name: /life stage/i })
-    );
-    await userEvent.type(
+    await clearAndType(
       wrapper.getByRole("textbox", { name: /life stage/i }),
       "lifestage 3 edited"
     );
@@ -2663,8 +3066,7 @@ describe("Material Sample Edit Page", () => {
 
     // Set a new value for attribute 2:
     const attribute2 = wrapper.getByDisplayValue(/attribute 2 value/i);
-    await userEvent.clear(attribute2);
-    await userEvent.type(attribute2, "new attribute 2 value");
+    await clearAndType(attribute2, "new attribute 2 value");
 
     // Save the form
     await userEvent.click(wrapper.getByRole("button", { name: /save/i }));
@@ -2720,9 +3122,11 @@ describe("Material Sample Edit Page", () => {
       ".enable-collecting-event .react-switch-bg"
     );
     if (!collectingEventToggle) {
-      fail("Collecting event toggle needs to exist at this point.");
+      throw new Error("Collecting event toggle needs to exist at this point.");
     }
-    fireEvent.click(collectingEventToggle[0]);
+    await userEvent.click(collectingEventToggle[0]);
+    await waitForLoadingToDisappear();
+
     await waitFor(() => {
       expect(wrapper.queryByText(/attribute 2/i)).toBeInTheDocument();
       expect(wrapper.queryByText(/attribute 3/i)).toBeInTheDocument();
@@ -2762,9 +3166,9 @@ describe("Material Sample Edit Page", () => {
       ".enable-organisms .react-switch-bg"
     );
     if (!organismToggle) {
-      fail("organism toggle needs to exist at this point.");
+      throw new Error("organism toggle needs to exist at this point.");
     }
-    fireEvent.click(organismToggle[0]);
+    await userEvent.click(organismToggle[0]);
     await waitFor(() =>
       expect(
         wrapper.getByRole("button", { name: /add new determination/i })
@@ -2778,8 +3182,12 @@ describe("Material Sample Edit Page", () => {
 
     const tabpanel = screen.getByRole("tabpanel");
     await waitFor(() => {
-      expect(within(tabpanel).getByText(/attribute 2/i)).toBeInTheDocument();
-      expect(within(tabpanel).getByText(/attribute 3/i)).toBeInTheDocument();
+      expect(
+        within(tabpanel).getAllByText(/attribute 2/i)[0]
+      ).toBeInTheDocument();
+      expect(
+        within(tabpanel).getAllByText(/attribute 3/i)[0]
+      ).toBeInTheDocument();
     });
   });
 
@@ -2990,13 +3398,11 @@ describe("Material Sample Edit Page", () => {
       const hostOrganismTextfield = wrapper.getByRole("textbox", {
         name: /name search/i
       });
-      await userEvent.clear(hostOrganismTextfield);
-      await userEvent.type(hostOrganismTextfield, "Updated host name");
+      await clearAndType(hostOrganismTextfield, "Updated host name");
 
       // Change the remarks field
       const remarksTextbox = wrapper.getByText(/original remarks/i);
-      await userEvent.clear(remarksTextbox);
-      await userEvent.type(remarksTextbox, "Update host remarks");
+      await clearAndType(remarksTextbox, "Update host remarks");
 
       // Save the form
       await userEvent.click(wrapper.getByRole("button", { name: /save/i }));
@@ -3080,9 +3486,9 @@ describe("Material Sample Edit Page", () => {
         ".enable-associations .react-switch-bg"
       );
       if (!associationToggle) {
-        fail("Association toggle needs to exist at this point.");
+        throw new Error("Association toggle needs to exist at this point.");
       }
-      fireEvent.click(associationToggle[0]);
+      await userEvent.click(associationToggle[0]);
 
       // Are you sure popup, click "Yes".
       await userEvent.click(wrapper.getByRole("button", { name: /yes/i }));
@@ -3156,8 +3562,7 @@ describe("Material Sample Edit Page", () => {
       const hostOrganismTextfield = wrapper.getByRole("textbox", {
         name: /name search/i
       });
-      await userEvent.clear(hostOrganismTextfield);
-      await userEvent.type(hostOrganismTextfield, "New Host Organism");
+      await clearAndType(hostOrganismTextfield, "New Host Organism");
 
       // Save the form
       await userEvent.click(wrapper.getByRole("button", { name: /save/i }));
@@ -3538,9 +3943,12 @@ describe("Material Sample Edit Page", () => {
         ".enable-collecting-event .react-switch-bg"
       );
       if (!collectingEventToggle) {
-        fail("Collecting event toggle needs to exist at this point.");
+        throw new Error(
+          "Collecting event toggle needs to exist at this point."
+        );
       }
-      fireEvent.click(collectingEventToggle[0]);
+      await userEvent.click(collectingEventToggle[0]);
+      await waitForLoadingToDisappear();
 
       await waitFor(() =>
         expect(wrapper.getByTestId("geographySearchBox")).toBeInTheDocument()
@@ -3631,9 +4039,13 @@ describe("Material Sample Edit Page", () => {
             [
               {
                 resource: {
-                  collectingEvent: {
-                    id: "11111111-1111-1111-1111-111111111111",
-                    type: "collecting-event"
+                  relationships: {
+                    collectingEvent: {
+                      data: {
+                        id: "11111111-1111-1111-1111-111111111111",
+                        type: "collecting-event"
+                      }
+                    }
                   },
                   publiclyReleasable: false,
                   type: "material-sample"
@@ -3659,9 +4071,12 @@ describe("Material Sample Edit Page", () => {
         ".enable-collecting-event .react-switch-bg"
       );
       if (!collectingEventToggle) {
-        fail("Collecting event toggle needs to exist at this point.");
+        throw new Error(
+          "Collecting event toggle needs to exist at this point."
+        );
       }
-      fireEvent.click(collectingEventToggle[0]);
+      await userEvent.click(collectingEventToggle[0]);
+      await waitForLoadingToDisappear();
 
       await waitFor(() =>
         expect(wrapper.getByTestId("geographySearchBox")).toBeInTheDocument()
@@ -3767,9 +4182,13 @@ describe("Material Sample Edit Page", () => {
             [
               {
                 resource: {
-                  collectingEvent: {
-                    id: "11111111-1111-1111-1111-111111111111",
-                    type: "collecting-event"
+                  relationships: {
+                    collectingEvent: {
+                      data: {
+                        id: "11111111-1111-1111-1111-111111111111",
+                        type: "collecting-event"
+                      }
+                    }
                   },
                   publiclyReleasable: false,
                   type: "material-sample"
@@ -3892,9 +4311,12 @@ describe("Material Sample Edit Page", () => {
         ".enable-collecting-event .react-switch-bg"
       );
       if (!collectingEventToggle) {
-        fail("Collecting event toggle needs to exist at this point.");
+        throw new Error(
+          "Collecting event toggle needs to exist at this point."
+        );
       }
-      fireEvent.click(collectingEventToggle[0]);
+      await userEvent.click(collectingEventToggle[0]);
+      await waitForLoadingToDisappear();
 
       await waitFor(() =>
         expect(wrapper.getByTestId("geographySearchBox")).toBeInTheDocument()
@@ -3905,16 +4327,18 @@ describe("Material Sample Edit Page", () => {
         "#manualGeographyInput"
       );
       if (!manualSwitchInput) {
-        fail("Manual geography switch needs to exist at this point.");
+        throw new Error(
+          "Manual geography switch needs to exist at this point."
+        );
       }
       const manualSwitchBg =
         manualSwitchInput.parentElement?.querySelector(".react-switch-bg");
       if (!manualSwitchBg) {
-        fail(
+        throw new Error(
           "Manual geography switch background needs to exist at this point."
         );
       }
-      fireEvent.click(manualSwitchBg);
+      await userEvent.click(manualSwitchBg);
 
       // Set the State/Province field:
       await userEvent.type(
@@ -3958,9 +4382,13 @@ describe("Material Sample Edit Page", () => {
             [
               {
                 resource: {
-                  collectingEvent: {
-                    id: "11111111-1111-1111-1111-111111111111",
-                    type: "collecting-event"
+                  relationships: {
+                    collectingEvent: {
+                      data: {
+                        id: "11111111-1111-1111-1111-111111111111",
+                        type: "collecting-event"
+                      }
+                    }
                   },
                   publiclyReleasable: false,
                   type: "material-sample"
@@ -3999,29 +4427,27 @@ describe("Material Sample Edit Page", () => {
         "#manualGeographyInput"
       );
       if (!manualSwitchInput) {
-        fail("Manual geography switch needs to exist at this point.");
+        throw new Error(
+          "Manual geography switch needs to exist at this point."
+        );
       }
       const manualSwitchBg =
         manualSwitchInput.parentElement?.querySelector(".react-switch-bg");
       if (!manualSwitchBg) {
-        fail(
+        throw new Error(
           "Manual geography switch background needs to exist at this point."
         );
       }
-      fireEvent.click(manualSwitchBg);
+      await userEvent.click(manualSwitchBg);
 
       // Set the State/Province field:
-      await userEvent.clear(
-        wrapper.getByRole("textbox", { name: /state\/province/i })
-      );
-      await userEvent.type(
+      await clearAndType(
         wrapper.getByRole("textbox", { name: /state\/province/i }),
         "Ontario"
       );
 
       // Set the Country field:
-      await userEvent.clear(wrapper.getByRole("textbox", { name: /country/i }));
-      await userEvent.type(
+      await clearAndType(
         wrapper.getByRole("textbox", { name: /country/i }),
         "Canada"
       );
@@ -4080,29 +4506,27 @@ describe("Material Sample Edit Page", () => {
         "#manualGeographyInput"
       );
       if (!manualSwitchInput) {
-        fail("Manual geography switch needs to exist at this point.");
+        throw new Error(
+          "Manual geography switch needs to exist at this point."
+        );
       }
       const manualSwitchBg =
         manualSwitchInput.parentElement?.querySelector(".react-switch-bg");
       if (!manualSwitchBg) {
-        fail(
+        throw new Error(
           "Manual geography switch background needs to exist at this point."
         );
       }
-      fireEvent.click(manualSwitchBg);
+      await userEvent.click(manualSwitchBg);
 
       // Set the State/Province field:
-      await userEvent.clear(
-        wrapper.getByRole("textbox", { name: /state\/province/i })
-      );
-      await userEvent.type(
+      await clearAndType(
         wrapper.getByRole("textbox", { name: /state\/province/i }),
         "Bavaria"
       );
 
       // Set the Country field:
-      await userEvent.clear(wrapper.getByRole("textbox", { name: /country/i }));
-      await userEvent.type(
+      await clearAndType(
         wrapper.getByRole("textbox", { name: /country/i }),
         "Germany"
       );
@@ -4158,7 +4582,9 @@ describe("Material Sample Edit Page", () => {
         "#manualGeographyInput"
       );
       if (!manualSwitchInput) {
-        fail("Manual geography switch needs to exist at this point.");
+        throw new Error(
+          "Manual geography switch needs to exist at this point."
+        );
       }
       expect(manualSwitchInput).toBeChecked();
     });
@@ -4195,7 +4621,9 @@ describe("Material Sample Edit Page", () => {
         "#manualGeographyInput"
       );
       if (!manualSwitchInput) {
-        fail("Manual geography switch needs to exist at this point.");
+        throw new Error(
+          "Manual geography switch needs to exist at this point."
+        );
       }
       expect(manualSwitchInput).not.toBeChecked();
     });
@@ -4215,9 +4643,11 @@ describe("Material Sample Edit Page", () => {
       );
 
       if (!scheduledActionToggle) {
-        fail("Scheduled action toggle needs to exist at this point.");
+        throw new Error(
+          "Scheduled action toggle needs to exist at this point."
+        );
       }
-      fireEvent.click(scheduledActionToggle[0]);
+      await userEvent.click(scheduledActionToggle[0]);
 
       // Enter an action type:
       await userEvent.type(
@@ -4273,6 +4703,984 @@ describe("Material Sample Edit Page", () => {
           ]
         ])
       );
+    });
+
+    it("Hides fields based on the active Form Template.", async () => {
+      const wrapper = mountWithAppContext(
+        <MaterialSampleForm
+          materialSample={{
+            type: "material-sample",
+            group: "test-group",
+            materialSampleName: "test-ms"
+          }}
+          formTemplate={{
+            type: "form-template",
+            components: [
+              {
+                name: "scheduled-actions-component",
+                visible: true,
+                sections: [
+                  {
+                    name: "scheduled-actions-add-section",
+                    visible: true,
+                    items: [
+                      { name: "scheduledAction.actionType", visible: true },
+                      { name: "scheduledAction.assignedTo", visible: false }
+                    ]
+                  }
+                ]
+              }
+            ]
+          }}
+          onSaved={mockOnSaved}
+        />,
+        testCtx
+      );
+
+      await waitFor(() =>
+        expect(
+          wrapper.getByRole("textbox", { name: /action type/i })
+        ).toBeInTheDocument()
+      );
+      expect(
+        wrapper.queryByRole("combobox", { name: /assigned to/i })
+      ).not.toBeInTheDocument();
+    });
+  });
+
+  describe("save and copy to next functionality", () => {
+    it("When creating a new material sample, save and copy to next, should save the current material sample and go to the next form", async () => {
+      const wrapper = mountWithAppContext(<MaterialSampleEditPage />, testCtx);
+      await waitFor(() => expect(wrapper.container).toBeInTheDocument());
+
+      // Enable the collecting event section:
+      const collectingEventToggle = wrapper.container.querySelectorAll(
+        ".enable-collecting-event .react-switch-bg"
+      );
+      if (!collectingEventToggle) {
+        throw new Error(
+          "Collecting event toggle needs to exist at this point."
+        );
+      }
+      await userEvent.click(collectingEventToggle[0]);
+      await waitForLoadingToDisappear();
+
+      await waitFor(() =>
+        expect(
+          wrapper.getByLabelText(/verbatim event datetime/i)
+        ).toBeInTheDocument()
+      );
+
+      await userEvent.type(
+        wrapper.getByRole("textbox", { name: /primary id/i }),
+        "Sample1"
+      );
+      await userEvent.type(
+        wrapper.getByRole("textbox", { name: /verbatim event datetime/i }),
+        "2019-12-21T16:00"
+      );
+
+      // Click the "Save & copy to next" button
+      await userEvent.click(
+        wrapper.getByRole("button", { name: /save & copy to next/i })
+      );
+
+      // Wait for the save to be called twice (once for the collecting event, once for the material sample)
+      await waitFor(() => expect(mockSave).toHaveBeenCalledTimes(2));
+
+      // Saves the Collecting Event and the Material Sampl properly.
+      expect(mockSave.mock.calls).toEqual([
+        [
+          // New collecting-event:
+          [
+            {
+              resource: {
+                dwcVerbatimCoordinateSystem: null,
+                dwcVerbatimSRS: "WGS84 (EPSG:4326)",
+                group: "aafc",
+                geoReferenceAssertions: [
+                  {
+                    isPrimary: true
+                  }
+                ],
+                verbatimEventDateTime: "2019-12-21T16:00",
+                publiclyReleasable: false, // Default value
+                type: "collecting-event"
+              },
+              type: "collecting-event"
+            }
+          ],
+          { apiBaseUrl: "/collection-api" }
+        ],
+        [
+          // New material-sample:
+          [
+            {
+              resource: {
+                group: "aafc",
+                relationships: {
+                  collectingEvent: {
+                    data: {
+                      id: "11111111-1111-1111-1111-111111111111",
+                      type: "collecting-event"
+                    }
+                  }
+                },
+                materialSampleName: "Sample1",
+                publiclyReleasable: false
+              },
+              type: "material-sample"
+            }
+          ],
+          { apiBaseUrl: "/collection-api" }
+        ]
+      ]);
+
+      // The next router should have pushed to the edit page for the new material sample.
+      expect(routerPushMock).toHaveBeenCalledWith(
+        "/collection/material-sample/edit?copyFromId=11111111-1111-1111-1111-111111111111"
+      );
+
+      // Now we will simiulate a new page load with these query params, the ids are different to match a mock but the previous
+      // expectation is to ensure it's the correct one.
+      jest.clearAllMocks();
+      (useRouter as jest.Mock).mockReturnValue({
+        query: {
+          copyFromId: "2"
+        },
+        push: routerPushMock,
+        pathname: "/collection/material-sample/edit"
+      });
+      wrapper.rerender(<MaterialSampleEditPage />);
+      await waitForLoadingToDisappear();
+
+      // Ensure success message appears...
+      await waitFor(() => {
+        expect(
+          wrapper.getByText(
+            /you are now working on a new copy based on "sample1"\. this copy will not be created until it's saved\./i
+          )
+        ).toBeInTheDocument();
+      });
+
+      // Ensure the primary id was incremented.
+      await waitFor(() => {
+        expect(
+          wrapper.getByRole("textbox", { name: /primary id/i })
+        ).toHaveValue("Sample2");
+      });
+
+      // Saving should create a new material sample with a link to the existing collecting event.
+      await userEvent.click(wrapper.getByRole("button", { name: "Save" }));
+      await waitFor(() => expect(mockSave).toHaveBeenCalledTimes(1));
+
+      expect(mockSave.mock.calls).toEqual([
+        // New material-sample:
+        [
+          [
+            {
+              resource: expect.objectContaining({
+                group: "test group",
+                relationships: expect.objectContaining({
+                  collectingEvent: {
+                    data: {
+                      id: "1",
+                      type: "collecting-event"
+                    }
+                  }
+                }),
+                materialSampleName: "Sample2",
+                publiclyReleasable: false
+              }),
+              type: "material-sample"
+            }
+          ],
+          { apiBaseUrl: "/collection-api" }
+        ]
+      ]);
+    });
+
+    it("When editing an existing material sample, save and copy to next, should save the current material sample and open a new form with the same values.", async () => {
+      jest.clearAllMocks();
+      (useRouter as jest.Mock).mockReturnValue({
+        query: {
+          id: "2"
+        },
+        push: routerPushMock,
+        pathname: "/collection/material-sample/edit"
+      });
+
+      const wrapper = mountWithAppContext(<MaterialSampleEditPage />, testCtx);
+      await waitForLoadingToDisappear();
+
+      // Expect "Sample1" in the form since no copy from has been done yet.
+      expect(
+        wrapper.getByRole("textbox", { name: /primary id/i })
+      ).toHaveDisplayValue("Sample1");
+
+      // Make a change to the barcode.
+      await userEvent.type(
+        wrapper.getByRole("textbox", { name: /barcode/i }),
+        "barcode1"
+      );
+
+      // Click the "Save & copy to next" button
+      await userEvent.click(
+        wrapper.getByRole("button", { name: /save & copy to next/i })
+      );
+
+      // Material sample should be updated before preceeding to copy from it.
+      await waitFor(() => expect(mockSave).toHaveBeenCalledTimes(1));
+
+      // Saves the Collecting Event and the Material Sampl properly.
+      expect(mockSave.mock.calls).toEqual([
+        [
+          // Update the EXISTING material sample
+          [
+            {
+              resource: {
+                id: "2",
+                type: "material-sample",
+                barcode: "barcode1"
+              },
+              type: "material-sample"
+            }
+          ],
+          { apiBaseUrl: "/collection-api" }
+        ]
+      ]);
+
+      // The next router should have pushed to the edit page for the new material sample.
+      expect(routerPushMock).toHaveBeenCalledWith(
+        "/collection/material-sample/edit?copyFromId=2"
+      );
+    });
+
+    it("When editing an existing material sample, save and copy to next, make no changes, expect no save request but continue the copy to next one.", async () => {
+      jest.clearAllMocks();
+      (useRouter as jest.Mock).mockReturnValue({
+        query: {
+          id: "2"
+        },
+        push: routerPushMock,
+        pathname: "/collection/material-sample/edit"
+      });
+
+      const wrapper = mountWithAppContext(<MaterialSampleEditPage />, testCtx);
+      await waitForLoadingToDisappear();
+
+      // Expect "Sample1" in the form since no copy from has been done yet.
+      expect(
+        wrapper.getByRole("textbox", { name: /primary id/i })
+      ).toHaveDisplayValue("Sample1");
+
+      // Click the "Save & copy to next" button
+      await userEvent.click(
+        wrapper.getByRole("button", { name: /save & copy to next/i })
+      );
+
+      // Material sample should be updated before preceeding to copy from it.
+      await waitFor(() => expect(mockSave).toHaveBeenCalledTimes(0));
+
+      // The next router should have pushed to the edit page for the new material sample.
+      expect(routerPushMock).toHaveBeenCalledWith(
+        "/collection/material-sample/edit?copyFromId=2"
+      );
+    });
+
+    it("Attachments should provide an alert to ask if you would like to include it in from a copy", async () => {
+      (useRouter as jest.Mock).mockReturnValue({
+        query: {
+          copyFromId: "1"
+        },
+        push: routerPushMock,
+        pathname: "/collection/material-sample/edit"
+      });
+      const wrapper = mountWithAppContext(<MaterialSampleEditPage />, testCtx);
+      await waitForLoadingToDisappear();
+
+      // Expect an alert at the top indicating that the attachment was not automatically copied over.
+      expect(
+        wrapper.getByText(
+          /the "attachment" data component was not automatically copied over since it's specific to the previous material sample\. would you like to duplicate it anyway\?/i
+        )
+      ).toBeInTheDocument();
+
+      // Since the "next" primary id could not be detected, just supply our own.
+      await userEvent.type(
+        wrapper.getByRole("textbox", { name: /primary id/i }),
+        "Sample-10"
+      );
+
+      // Select the duplicate option
+      await userEvent.click(
+        wrapper.getByRole("button", {
+          name: /duplicate attachment from "my\-sample\-name"/i
+        })
+      );
+      await waitForLoadingToDisappear();
+
+      // Click "Save & Copy to Next".
+      await userEvent.click(
+        wrapper.getByRole("button", { name: /save & copy to next/i })
+      );
+
+      // Material sample should be updated before preceeding to copy from it.
+      await waitFor(() => expect(mockSave).toHaveBeenCalledTimes(1));
+
+      // Saves the Collecting Event and the Material Sampl properly.
+      expect(mockSave.mock.calls).toEqual([
+        [
+          // Create the new material sample.
+          [
+            {
+              resource: expect.objectContaining({
+                materialSampleName: "Sample-10",
+                group: "test group",
+                relationships: expect.objectContaining({
+                  // Attachment copied over.
+                  attachment: {
+                    data: [
+                      {
+                        id: "attach-1",
+                        type: "metadata"
+                      }
+                    ]
+                  },
+
+                  // Collecting event automatically copied over.
+                  collectingEvent: {
+                    data: {
+                      id: "1",
+                      type: "collecting-event"
+                    }
+                  }
+                })
+              }),
+              type: "material-sample"
+            }
+          ],
+          { apiBaseUrl: "/collection-api" }
+        ]
+      ]);
+
+      // The next router should have pushed to the edit page for the new material sample.
+      expect(routerPushMock).toHaveBeenCalledWith(
+        "/collection/material-sample/edit?copyFromId=11111111-1111-1111-1111-111111111111"
+      );
+    });
+    it("Pressing Enter in a text field submits the form as a normal Save, not Save & Copy to Next.", async () => {
+      (useRouter as jest.Mock).mockReturnValue({
+        query: {},
+        push: routerPushMock,
+        pathname: "/collection/material-sample/edit"
+      });
+
+      const wrapper = mountWithAppContext(<MaterialSampleEditPage />, testCtx);
+      await waitFor(() => expect(wrapper.container).toBeInTheDocument());
+
+      // Type into the Primary ID field and press Enter, simulating a user
+      // hitting Enter instead of clicking a button.
+      const primaryIdInput = wrapper.getByRole("textbox", {
+        name: /primary id/i
+      });
+      await clearAndType(primaryIdInput, "Sample1");
+      await userEvent.type(primaryIdInput, "{enter}");
+
+      // Only 1 save call: no collecting event was enabled, just the sample.
+      await waitFor(() => expect(mockSave).toHaveBeenCalledTimes(1));
+
+      expect(mockSave.mock.calls).toEqual([
+        [
+          [
+            {
+              resource: {
+                group: "aafc",
+                materialSampleName: "Sample1",
+                publiclyReleasable: false
+              },
+              type: "material-sample"
+            }
+          ],
+          { apiBaseUrl: "/collection-api" }
+        ]
+      ]);
+
+      // Assure that the submitted button was just the save and not the copy to next action.
+      // If it was normal save, the user is directed to the view page.
+      expect(routerPushMock).toHaveBeenCalledWith(
+        "/collection/material-sample/view?id=11111111-1111-1111-1111-111111111111"
+      );
+      expect(routerPushMock).not.toHaveBeenCalledWith(
+        expect.stringContaining("copyFromId")
+      );
+    });
+  });
+
+  describe("Applying a Form Template", () => {
+    beforeEach(() => {
+      // The selected Form Template's UUID is persisted in localStorage
+      // (keyed by username), independently of the router query param:
+      window.localStorage.clear();
+    });
+
+    afterEach(() => {
+      window.localStorage.clear();
+    });
+
+    it("Populates default values and hides fields based on a Form Template selected via the ?formTemplateId= query param.", async () => {
+      (useRouter as jest.Mock).mockReturnValue({
+        query: { formTemplateId: TEST_APPLY_FORM_TEMPLATE_ID },
+        push: routerPushMock,
+        pathname: "/collection/material-sample/edit"
+      });
+
+      const wrapper = mountWithAppContext(<MaterialSampleEditPage />, testCtx);
+      await waitForLoadingToDisappear();
+
+      // --- Managed Attributes: default value populated, order/visibility applied ---
+      // Attribute 1 has a default value from the template:
+      await waitFor(() =>
+        expect(
+          wrapper.getByDisplayValue(/default attribute 1 value/i)
+        ).toBeInTheDocument()
+      );
+      // Attribute 2 is visible (in the template's managedAttributesOrder) but has no default:
+      expect(wrapper.queryByText(/attribute 2/i)).toBeInTheDocument();
+
+      // --- Collecting Event: enabled automatically by the template (no manual toggle needed) ---
+      // Expedition is visible and pre-filled with the template's default value:
+      await waitFor(() =>
+        expect(
+          wrapper.container.querySelector(".expedition-field")
+        ).toBeInTheDocument()
+      );
+      expect(wrapper.getByText(/test expedition/i)).toBeInTheDocument();
+      // Site is hidden by the template, even though it's in the same section as Expedition:
+      expect(
+        wrapper.container.querySelector(".site-field")
+      ).not.toBeInTheDocument();
+
+      // --- Associations: default value creates the entry, mixed field visibility applies ---
+      // The association tab/panel exists because the template gave it a default value
+      // (associations[0].associationType), even though nothing was added manually:
+      await waitFor(() =>
+        expect(
+          wrapper.container.querySelector(
+            ".associations_0__associationType-field"
+          )
+        ).toBeInTheDocument()
+      );
+      // Associated Sample and Remarks are hidden by the template on that same entry:
+      expect(
+        wrapper.container.querySelector(
+          ".associations_0__associatedSample-field"
+        )
+      ).not.toBeInTheDocument();
+      expect(
+        wrapper.container.querySelector(".associations_0__remarks-field")
+      ).not.toBeInTheDocument();
+
+      // --- Citations: default value populated, doi field hidden ---
+      await waitFor(() =>
+        expect(
+          wrapper.getByDisplayValue(/default paper title/i)
+        ).toBeInTheDocument()
+      );
+      expect(
+        wrapper.container.querySelector(".doi-field")
+      ).not.toBeInTheDocument();
+
+      // --- Georeferencing: nothing checked in the template, so the whole
+      // Georeferencing widget is hidden (a Form Template with every field in a
+      // section marked not-visible hides the whole section), instead of showing
+      // a phantom pre-existing "Assertion 1 (Primary)" entry:
+      expect(
+        wrapper.container.querySelector("#geoReferencingLegend")
+      ).not.toBeInTheDocument();
+      expect(
+        wrapper.queryByRole("button", {
+          name: /add new georeference assertion/i
+        })
+      ).not.toBeInTheDocument();
+      expect(
+        wrapper.queryByRole("button", { name: /make primary/i })
+      ).not.toBeInTheDocument();
+    });
+
+    it("Strips the UI-only attachmentsConfig field from the submitted payload.", async () => {
+      const wrapper = mountWithAppContext(
+        <MaterialSampleForm
+          materialSample={
+            {
+              type: "material-sample",
+              group: "aafc",
+              attachmentsConfig: { allowNew: true, allowExisting: false }
+            } as any
+          }
+          onSaved={mockOnSaved}
+        />,
+        testCtx
+      );
+      await waitForLoadingToDisappear();
+
+      await userEvent.type(
+        wrapper.getByRole("textbox", { name: /primary id/i }),
+        "test-material-sample-id"
+      );
+
+      await userEvent.click(wrapper.getByRole("button", { name: /save/i }));
+      await waitFor(() => expect(mockSave).toHaveBeenCalled());
+
+      const savedResource = mockSave.mock.calls[0][0][0].resource;
+      expect(savedResource.attachmentsConfig).toBeUndefined();
+    });
+
+    it("Hides fields on an EXISTING Citation being edited on an existing Material Sample, based on the active Form Template.", async () => {
+      const wrapper = mountWithAppContext(
+        <MaterialSampleForm
+          materialSample={{
+            type: "material-sample",
+            id: "333",
+            group: "test-group",
+            materialSampleName: "test-ms",
+            citations: [
+              {
+                title: "Existing Title",
+                doi: "https://doi.org/10.1234/existing"
+              }
+            ]
+          }}
+          formTemplate={{
+            type: "form-template",
+            components: [
+              {
+                name: "citations-component",
+                visible: true,
+                sections: [
+                  {
+                    name: "citations-add-section",
+                    visible: true,
+                    items: [
+                      { name: "citation.title", visible: true },
+                      { name: "citation.doi", visible: false }
+                    ]
+                  }
+                ]
+              }
+            ]
+          }}
+          onSaved={mockOnSaved}
+        />,
+        testCtx
+      );
+
+      await waitForLoadingToDisappear();
+
+      // Switch to the detail table view to reveal the per-row Edit button:
+      await waitFor(() =>
+        expect(wrapper.getByLabelText(/view detail/i)).toBeInTheDocument()
+      );
+      await userEvent.click(wrapper.getByLabelText(/view detail/i));
+
+      // Open the existing citation for editing:
+      await waitFor(() =>
+        expect(
+          wrapper.getByRole("button", { name: /^edit$/i })
+        ).toBeInTheDocument()
+      );
+      await userEvent.click(wrapper.getByRole("button", { name: /^edit$/i }));
+
+      // The visible "title" field shows the existing value:
+      await waitFor(() =>
+        expect(wrapper.getByDisplayValue(/existing title/i)).toBeInTheDocument()
+      );
+      // The hidden "doi" field does not show, even though it has an existing value:
+      expect(
+        wrapper.container.querySelector(".doi-field")
+      ).not.toBeInTheDocument();
+    });
+
+    it("Still shows Preparation Managed Attributes when every other Preparation field is hidden by the Form Template", async () => {
+      const wrapper = mountWithAppContext(
+        <MaterialSampleForm
+          materialSample={{
+            type: "material-sample",
+            group: "test-group",
+            materialSampleName: "test-ms"
+          }}
+          formTemplate={{
+            type: "form-template",
+            components: [
+              {
+                name: "preparations-component",
+                visible: true,
+                sections: [
+                  {
+                    name: "general-section",
+                    visible: true,
+                    items: [
+                      { name: "preparationType", visible: false },
+                      { name: "preparationMethod", visible: false },
+                      { name: "preservationType", visible: false },
+                      { name: "preparationFixative", visible: false },
+                      { name: "preparationMaterials", visible: false },
+                      { name: "preparationSubstrate", visible: false },
+                      { name: "preparationRemarks", visible: false },
+                      { name: "dwcDegreeOfEstablishment", visible: false },
+                      { name: "preparedBy", visible: false },
+                      { name: "preparationDate", visible: false },
+                      { name: "preparationProtocol", visible: false }
+                    ]
+                  },
+                  {
+                    name: "preparations-managed-attributes-section",
+                    visible: true,
+                    items: [
+                      { name: "preparationManagedAttributes", visible: true },
+                      {
+                        name: "preparationManagedAttributesOrder",
+                        visible: true
+                      }
+                    ]
+                  }
+                ]
+              }
+            ]
+          }}
+          onSaved={mockOnSaved}
+        />,
+        testCtx
+      );
+
+      await waitForLoadingToDisappear();
+
+      // Every individual Preparation field is correctly hidden:
+      expect(
+        wrapper.container.querySelector(".preparation-type")
+      ).not.toBeInTheDocument();
+      expect(
+        wrapper.container.querySelector(".preservationType-field")
+      ).not.toBeInTheDocument();
+
+      // But the Preparation Managed Attributes section still shows, including its
+      // "add an attribute" selector:
+      expect(
+        wrapper.getByText(/preparation managed attributes/i)
+      ).toBeInTheDocument();
+      expect(
+        wrapper.container.querySelector(".visible-attribute-menu")
+      ).toBeInTheDocument();
+    });
+
+    it("Still shows Organism Managed Attributes when every other Organism field is hidden by the Form Template.", async () => {
+      const wrapper = mountWithAppContext(
+        <MaterialSampleForm
+          materialSample={{
+            type: "material-sample",
+            group: "test-group",
+            materialSampleName: "test-ms",
+            organismsQuantity: 1,
+            organism: [{ type: "organism" }]
+          }}
+          formTemplate={{
+            type: "form-template",
+            components: [
+              {
+                name: "organisms-component",
+                visible: true,
+                sections: [
+                  {
+                    name: "organisms-general-section",
+                    visible: true,
+                    items: [
+                      { name: "organism[0].lifeStage", visible: false },
+                      { name: "organism[0].sex", visible: false },
+                      { name: "organism[0].remarks", visible: false },
+                      {
+                        name: "organism[0].dwcVernacularName",
+                        visible: false
+                      }
+                    ]
+                  }
+                ]
+              }
+            ]
+          }}
+          onSaved={mockOnSaved}
+        />,
+        testCtx
+      );
+
+      await waitForLoadingToDisappear();
+
+      expect(
+        wrapper.container.querySelector(".lifeStage-field")
+      ).not.toBeInTheDocument();
+      expect(
+        wrapper.getByText(/organism managed attributes/i)
+      ).toBeInTheDocument();
+    });
+
+    it("Still shows Determination Managed Attributes when every other Determination field is hidden by the Form Template.", async () => {
+      const wrapper = mountWithAppContext(
+        <MaterialSampleForm
+          materialSample={{
+            type: "material-sample",
+            group: "test-group",
+            materialSampleName: "test-ms",
+            organism: [
+              {
+                type: "organism",
+                determination: [{ isPrimary: true }]
+              }
+            ]
+          }}
+          formTemplate={{
+            type: "form-template",
+            components: [
+              {
+                name: "organisms-component",
+                visible: true,
+                sections: [
+                  {
+                    name: "organism-verbatim-determination-section",
+                    visible: true,
+                    items: [
+                      {
+                        name: "organism[0].determination[0].verbatimScientificName",
+                        visible: false
+                      }
+                    ]
+                  },
+                  {
+                    name: "organism-determination-section",
+                    visible: true,
+                    items: [
+                      {
+                        name: "organism[0].determination[0].scientificName",
+                        visible: false
+                      },
+                      {
+                        name: "organism[0].determination[0].scientificNameInput",
+                        visible: false
+                      },
+                      {
+                        name: "organism[0].determination[0].determiner",
+                        visible: false
+                      },
+                      {
+                        name: "organism[0].determination[0].determinedOn",
+                        visible: false
+                      },
+                      {
+                        name: "organism[0].determination[0].determinationRemarks",
+                        visible: false
+                      }
+                    ]
+                  }
+                ]
+              }
+            ]
+          }}
+          onSaved={mockOnSaved}
+        />,
+        testCtx
+      );
+
+      await waitForLoadingToDisappear();
+
+      expect(
+        wrapper.container.querySelector(".verbatimScientificName-field")
+      ).not.toBeInTheDocument();
+      expect(
+        wrapper.getByText(/determination managed attributes/i)
+      ).toBeInTheDocument();
+    });
+
+    it("Hides the whole 'Determination' and 'Type Specimen' sections when every field within them is hidden by the Form Template", async () => {
+      const wrapper = mountWithAppContext(
+        <MaterialSampleForm
+          materialSample={{
+            type: "material-sample",
+            group: "test-group",
+            materialSampleName: "test-ms",
+            organism: [
+              {
+                type: "organism",
+                determination: [{ isPrimary: true }]
+              }
+            ]
+          }}
+          formTemplate={{
+            type: "form-template",
+            components: [
+              {
+                name: "organisms-component",
+                visible: true,
+                sections: [
+                  {
+                    name: "organism-verbatim-determination-section",
+                    visible: true,
+                    items: [
+                      {
+                        name: "organism[0].determination[0].verbatimScientificName",
+                        visible: false
+                      },
+                      {
+                        name: "organism[0].determination[0].verbatimDeterminer",
+                        visible: false
+                      },
+                      {
+                        name: "organism[0].determination[0].verbatimDate",
+                        visible: false
+                      },
+                      {
+                        name: "organism[0].determination[0].verbatimRemarks",
+                        visible: false
+                      },
+                      {
+                        name: "organism[0].determination[0].transcriberRemarks",
+                        visible: false
+                      }
+                    ]
+                  },
+                  {
+                    name: "organism-determination-section",
+                    visible: true,
+                    items: [
+                      {
+                        name: "organism[0].determination[0].scientificName",
+                        visible: false
+                      },
+                      {
+                        name: "organism[0].determination[0].scientificNameInput",
+                        visible: false
+                      },
+                      {
+                        name: "organism[0].determination[0].determiner",
+                        visible: false
+                      },
+                      {
+                        name: "organism[0].determination[0].determinedOn",
+                        visible: false
+                      },
+                      {
+                        name: "organism[0].determination[0].determinationRemarks",
+                        visible: false
+                      }
+                    ]
+                  },
+                  {
+                    name: "organism-type-specimen-section",
+                    visible: true,
+                    items: [
+                      {
+                        name: "organism[0].determination[0].typeStatus",
+                        visible: false
+                      },
+                      {
+                        name: "organism[0].determination[0].typeStatusEvidence",
+                        visible: false
+                      }
+                    ]
+                  }
+                ]
+              }
+            ]
+          }}
+          onSaved={mockOnSaved}
+        />,
+        testCtx
+      );
+
+      await waitForLoadingToDisappear();
+
+      // Nothing is checked in any of these three sections, so none of them should
+      // render at all - not even their empty legend/fieldset:
+      expect(
+        wrapper.queryByText("Verbatim Determination")
+      ).not.toBeInTheDocument();
+      expect(wrapper.queryByText("Determination")).not.toBeInTheDocument();
+      expect(wrapper.queryByText("Type Specimen")).not.toBeInTheDocument();
+
+      // Managed Attributes is a separate, always-shown section - unaffected by the above:
+      expect(
+        wrapper.getByText(/determination managed attributes/i)
+      ).toBeInTheDocument();
+    });
+
+    it("Hides the whole 'Collecting Event Details' section when every field within it is hidden by the Form Template, while a sibling section sharing the same component stays visible", async () => {
+      const wrapper = mountWithAppContext(
+        <MaterialSampleForm
+          materialSample={{
+            type: "material-sample",
+            group: "test-group",
+            materialSampleName: "test-ms"
+          }}
+          formTemplate={{
+            type: "form-template",
+            components: [
+              {
+                name: "collecting-event-component",
+                visible: true,
+                sections: [
+                  {
+                    name: "collecting-event-details",
+                    visible: true,
+                    items: [
+                      {
+                        name: "expedition",
+                        visible: true,
+                        defaultValue: {
+                          id: "expedition-1",
+                          type: "expedition",
+                          name: "Test Expedition"
+                        }
+                      },
+                      { name: "site", visible: false }
+                    ]
+                  },
+                  {
+                    name: "collecting-event-additional-details-section",
+                    visible: true,
+                    items: [
+                      { name: "habitat", visible: false },
+                      { name: "host", visible: false },
+                      { name: "collectionMethod", visible: false },
+                      { name: "substrate", visible: false },
+                      { name: "dwcMinimumElevationInMeters", visible: false },
+                      { name: "dwcMaximumElevationInMeters", visible: false },
+                      { name: "dwcMinimumDepthInMeters", visible: false },
+                      { name: "dwcMaximumDepthInMeters", visible: false },
+                      { name: "remarks", visible: false }
+                    ]
+                  }
+                ]
+              }
+            ]
+          }}
+          onSaved={mockOnSaved}
+        />,
+        testCtx
+      );
+
+      await waitForLoadingToDisappear();
+
+      // Nothing is checked in the "additional details" section (habitat, host, etc.),
+      // so its box should not render at all - not even its empty legend/fieldset:
+      expect(
+        wrapper.queryByText("Collecting Event Details")
+      ).not.toBeInTheDocument();
+
+      // Expedition is visible (a sibling box sharing the "collecting-event-details"
+      // section id) and must not be affected by the above:
+      expect(
+        wrapper.getByText(/collecting event expedition/i)
+      ).toBeInTheDocument();
+      expect(
+        wrapper.container.querySelector(".expedition-field")
+      ).toBeInTheDocument();
     });
   });
 });

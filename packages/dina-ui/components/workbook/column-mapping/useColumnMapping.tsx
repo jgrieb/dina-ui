@@ -12,7 +12,8 @@ import { useDinaIntl } from "../../../intl/dina-ui-intl";
 import {
   ControlledVocabularyItem,
   ManagedAttribute,
-  Vocabulary
+  Vocabulary,
+  VocabularyElement
 } from "../../../types/collection-api";
 import { useWorkbookContext } from "../WorkbookProvider";
 import {
@@ -42,7 +43,8 @@ import {
 } from "../../resource-select-fields/resource-select-fields";
 import {
   COLLECTION_MANAGED_ATTRIBUTE_ID,
-  MATERIAL_SAMPLE_OTHER_IDENTIFERS_ID
+  COLLECTION_OTHER_IDENTIFIERS_ID,
+  OBJECT_STORE_MANAGED_ATTRIBUTE_ID
 } from "@dina-ui/components/controlled-vocabulary/controlledVocabularyItemUtils";
 
 export function useColumnMapping() {
@@ -122,20 +124,23 @@ export function useColumnMapping() {
   } = useQuery<ControlledVocabularyItem[]>({
     path: "collection-api/controlled-vocabulary-item",
     filter: SimpleSearchFilterBuilder.create()
-      .where(
-        "controlledVocabulary.uuid",
-        "EQ",
-        MATERIAL_SAMPLE_OTHER_IDENTIFERS_ID
-      )
+      .where("controlledVocabulary.uuid", "EQ", COLLECTION_OTHER_IDENTIFIERS_ID)
       .build(),
     page: { limit: 1000 }
   });
 
   const { loading: attrLoadingMetadata, response: attrRespMetadata } = useQuery<
-    ManagedAttribute[]
+    ControlledVocabularyItem[]
   >(
     {
-      path: "objectstore-api/managed-attribute",
+      path: "objectstore-api/controlled-vocabulary-item",
+      filter: SimpleSearchFilterBuilder.create()
+        .where(
+          "controlledVocabulary.uuid",
+          "EQ",
+          OBJECT_STORE_MANAGED_ATTRIBUTE_ID
+        )
+        .build(),
       page: { limit: 1000 }
     },
     {
@@ -393,21 +398,21 @@ export function useColumnMapping() {
     newWorkbookColumnMap: WorkbookColumnMap
   ) {
     const originalColumnHeader = columnHeader;
-    columnHeader = columnHeader.replaceAll(".", "_");
+    const columnHeaderValue = columnHeader.replaceAll(".", "_");
 
     const fieldPath = "organism.determination.scientificNameDetails";
-    const targetTaxonomicRank = taxonomicRanks.find(
-      (item) =>
-        item.name?.toLowerCase().trim() === columnHeader.toLowerCase().trim()
-    );
+    const targetTaxonomicRank = findTaxonomicRankFromColumn({
+      columnHeader: originalColumnHeader,
+      originalColumn: originalColumnHeader
+    });
     if (targetTaxonomicRank) {
-      newWorkbookColumnMap[columnHeader] = {
+      newWorkbookColumnMap[columnHeaderValue] = {
         fieldPath,
         originalColumnName: originalColumnHeader,
         showOnUI: true,
         mapRelationship: false,
         numOfUniqueValues: Object.keys(
-          columnUniqueValues?.[sheet]?.[columnHeader] ?? {}
+          columnUniqueValues?.[sheet]?.[columnHeaderValue] ?? {}
         ).length,
         valueMapping: {
           columnHeader: {
@@ -417,13 +422,13 @@ export function useColumnMapping() {
         }
       };
     } else {
-      newWorkbookColumnMap[columnHeader] = {
+      newWorkbookColumnMap[columnHeaderValue] = {
         fieldPath,
         originalColumnName: originalColumnHeader,
         showOnUI: true,
         mapRelationship: false,
         numOfUniqueValues: Object.keys(
-          columnUniqueValues?.[sheet]?.[columnHeader] ?? {}
+          columnUniqueValues?.[sheet]?.[columnHeaderValue] ?? {}
         ).length,
         valueMapping: {}
       };
@@ -455,11 +460,29 @@ export function useColumnMapping() {
       return undefined;
     }
 
+    // Depending on if it's a controlled vocabulary managed attribute or legacy managed attribute,
+    // the dina component will be stored in a different part.
+    const configDataComponent =
+      config?.managedAttributeComponent ?? config?.filter?.dinaComponent;
+
+    // Find the matching managed attribute based on the key and the dina component.
     return managedAttributes.find(
       (managedAttribute) =>
         managedAttribute.key === key &&
-        (config.managedAttributeComponent === "ENTITY" ||
-          managedAttribute?.dinaComponent === config.managedAttributeComponent)
+        (configDataComponent === "ENTITY" ||
+          managedAttribute?.dinaComponent === configDataComponent)
+    );
+  }
+
+  function findTaxonomicRankFromColumn(
+    columnHeader: WorkbookColumnInfo
+  ): VocabularyElement | undefined {
+    const rankName =
+      columnHeader.originalColumn?.split(".").at(-1) ??
+      columnHeader.columnHeader;
+    return taxonomicRanks.find(
+      (item) =>
+        item.name?.toLowerCase().trim() === rankName?.toLowerCase().trim()
     );
   }
 
@@ -614,7 +637,7 @@ export function useColumnMapping() {
       const columnHeaderValue =
         columnHeader.originalColumn ?? columnHeader.columnHeader;
       const fieldPath = findMatchField(columnHeader, newFieldOptions, type);
-      if (fieldPath === undefined) {
+      if (fieldPath === undefined || fieldPath.endsWith("managedAttributes")) {
         // check if the columnHeaderValue is one of managedAttributes
         const targetManagedAttr =
           findManagedAttributeMatchFromTemplate(columnHeaderValue) ??
@@ -632,11 +655,7 @@ export function useColumnMapping() {
         );
 
         // check if the columnHeaderValue is one of taxonomicRankss
-        const targetTaxonomicRank = taxonomicRanks.find(
-          (item) =>
-            item.name?.toLowerCase().trim() ===
-            columnHeaderValue.toLowerCase().trim()
-        );
+        const targetTaxonomicRank = findTaxonomicRankFromColumn(columnHeader);
         if (targetManagedAttr) {
           if (targetManagedAttr.dinaComponent === "MATERIAL_SAMPLE") {
             map.push({
@@ -712,9 +731,15 @@ export function useColumnMapping() {
           });
         }
       } else {
+        const targetTaxonomicRank =
+          fieldPath === "organism.determination.scientificNameDetails"
+            ? findTaxonomicRankFromColumn(columnHeader)
+            : undefined;
+
         map.push({
           targetField: fieldPath,
           skipped: false,
+          targetKey: targetTaxonomicRank,
           columnHeader: columnHeader.columnHeader,
           originalColumn: columnHeader.originalColumn
         });

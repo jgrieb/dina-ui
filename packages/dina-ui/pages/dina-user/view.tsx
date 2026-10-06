@@ -14,7 +14,13 @@ import {
 } from "common-ui";
 import { useRouter } from "next/router";
 import { SUPER_USER } from "common-ui/types/DinaRoles";
-import { Footer, GroupLabel, Head, Nav } from "../../components";
+import {
+  Footer,
+  GroupLabel,
+  Head,
+  Nav,
+  PermissionsTable
+} from "../../components";
 import { DinaMessage, useDinaIntl } from "../../intl/dina-ui-intl";
 import { Person } from "../../types/objectstore-api";
 import { DinaUser } from "../../types/user-api/resources/DinaUser";
@@ -93,11 +99,16 @@ export default function DinaUserDetailsPage() {
                       rolesPerGroup={dinaUser.rolesPerGroup}
                     />
                   </div>
-                  {dinaUser.adminRoles.length !== 0 && (
+                  {!!dinaUser.adminRoles?.length && (
                     <div className="col-6">
                       <AdminRolesTable adminRoles={dinaUser.adminRoles} />
                     </div>
                   )}
+                </div>
+                <div className="row mt-3">
+                  <div className="col-12">
+                    <PermissionsTable />
+                  </div>
                 </div>
                 <div className="row mt-3">
                   <div>

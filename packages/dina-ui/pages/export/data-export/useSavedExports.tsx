@@ -1,23 +1,24 @@
-import { useAccount, useApiClient } from "common-ui/lib";
+import {
+  FiqlSearchFilterBuilder,
+  useAccount,
+  useApiClient
+} from "common-ui/lib";
 import { KitsuResource } from "kitsu";
 import { useEffect, useState, useMemo } from "react";
 import Modal from "react-bootstrap/Modal";
 import Button from "react-bootstrap/Button";
 import Spinner from "react-bootstrap/Spinner";
-import { TableColumn } from "packages/common-ui/lib/list-page/types";
+import { TableColumn } from "common-ui/lib/list-page/types";
 import _ from "lodash";
-import { DinaMessage } from "packages/dina-ui/intl/dina-ui-intl";
-import { DataExportTemplate } from "packages/dina-ui/types/dina-export-api/resources/DataExportTemplate";
-import {
-  ColumnSeparator,
-  ExportType
-} from "packages/dina-ui/types/dina-export-api";
+import { DinaMessage } from "dina-ui/intl/dina-ui-intl";
+import { DataExportTemplate } from "dina-ui/types/dina-export-api/resources/DataExportTemplate";
+import { ColumnSeparator, ExportType } from "dina-ui/types/dina-export-api";
 import Select from "react-select";
 import {
   convertColumnsToAliases,
   convertColumnsToPaths,
   getColumnFunctions
-} from "packages/common-ui/lib/column-selector/ColumnSelectorUtils";
+} from "common-ui/lib/column-selector/ColumnSelectorUtils";
 
 export const VISIBILITY_OPTIONS: {
   label: React.JSX.Element;
@@ -352,11 +353,18 @@ export default function useSavedExports<TData extends KitsuResource>({
    */
   async function retrieveSavedExports() {
     setLoadingSavedExports(true);
+
+    // Fetch public items, plus items for the user's groups.
+    // Restricting by group reduces API permission checks, while user-level permissions are still enforced by the API.
     await apiClient
       .get<DataExportTemplate[]>("dina-export-api/data-export-template", {
-        filter: {
-          group: groupNames?.[0] ?? ""
-        }
+        fiql: FiqlSearchFilterBuilder.create()
+          .or((b) =>
+            b
+              .where("publiclyReleasable", "EQ", true)
+              .whereIn("group", groupNames)
+          )
+          .build()
       })
       .then((response) => {
         setLoadingSavedExports(false);
@@ -491,7 +499,11 @@ export default function useSavedExports<TData extends KitsuResource>({
               displayOverrideWarning ? " is-invalid" : ""
             }`}
             value={savedExportName}
-            onChange={(e) => setSavedExportName((e.target as HTMLTextAreaElement | HTMLInputElement).value)}
+            onChange={(e) =>
+              setSavedExportName(
+                (e.target as HTMLTextAreaElement | HTMLInputElement).value
+              )
+            }
             disabled={loadingCreateSavedExport}
           />
           {displayOverrideWarning && (

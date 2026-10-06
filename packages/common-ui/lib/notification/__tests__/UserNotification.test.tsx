@@ -1,5 +1,6 @@
 import "@testing-library/jest-dom";
 import { fireEvent, waitFor } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { mountWithAppContext } from "../../test-util/mock-app-context";
 import { UserNotification } from "../UserNotification";
 
@@ -141,7 +142,7 @@ describe("UserNotification", () => {
       });
 
       const button = wrapper.getByLabelText("Notifications");
-      fireEvent.click(button);
+      await userEvent.click(button);
 
       await waitFor(() => {
         const dropdown = wrapper.container.querySelector(
@@ -168,7 +169,7 @@ describe("UserNotification", () => {
       const button = wrapper.getByLabelText("Notifications");
 
       // Open dropdown
-      fireEvent.click(button);
+      await userEvent.click(button);
       await waitFor(() => {
         expect(
           wrapper.container.querySelector(".notification-dropdown")
@@ -176,7 +177,7 @@ describe("UserNotification", () => {
       });
 
       // Close dropdown
-      fireEvent.click(button);
+      await userEvent.click(button);
       await waitFor(() => {
         expect(
           wrapper.container.querySelector(".notification-dropdown")
@@ -201,7 +202,7 @@ describe("UserNotification", () => {
       const button = wrapper.getByLabelText("Notifications");
 
       // Open dropdown
-      fireEvent.click(button);
+      await userEvent.click(button);
       await waitFor(() => {
         expect(
           wrapper.container.querySelector(".notification-dropdown")
@@ -235,7 +236,7 @@ describe("UserNotification", () => {
       const button = wrapper.getByLabelText("Notifications");
 
       // Open dropdown
-      fireEvent.click(button);
+      await userEvent.click(button);
       await waitFor(() => {
         expect(
           wrapper.container.querySelector(".notification-dropdown")
@@ -273,7 +274,7 @@ describe("UserNotification", () => {
 
       // Open dropdown
       const button = wrapper.getByLabelText("Notifications");
-      fireEvent.click(button);
+      await userEvent.click(button);
 
       await waitFor(() => {
         expect(wrapper.getByText(/Loading/i)).toBeInTheDocument();
@@ -299,7 +300,7 @@ describe("UserNotification", () => {
 
       // Open dropdown
       const button = wrapper.getByLabelText("Notifications");
-      fireEvent.click(button);
+      await userEvent.click(button);
 
       await waitFor(() => {
         expect(
@@ -324,10 +325,10 @@ describe("UserNotification", () => {
 
       // Open dropdown
       const button = wrapper.getByLabelText("Notifications");
-      fireEvent.click(button);
+      await userEvent.click(button);
 
       await waitFor(() => {
-        expect(wrapper.getByText(/No notifications/i)).toBeInTheDocument();
+        expect(wrapper.getByText(/All caught up!/i)).toBeInTheDocument();
       });
     });
 
@@ -347,7 +348,7 @@ describe("UserNotification", () => {
 
       // Open dropdown
       const button = wrapper.getByLabelText("Notifications");
-      fireEvent.click(button);
+      await userEvent.click(button);
 
       await waitFor(() => {
         expect(wrapper.getAllByText("Notification 1")[0]).toBeInTheDocument();
@@ -372,12 +373,34 @@ describe("UserNotification", () => {
 
       // Open dropdown
       const button = wrapper.getByLabelText("Notifications");
-      fireEvent.click(button);
+      await userEvent.click(button);
 
       await waitFor(() => {
         const cards = wrapper.container.querySelectorAll(".notification-card");
         expect(cards.length).toBe(3);
       });
+    });
+  });
+
+  describe("Notification Toasts", () => {
+    it("Does not display toasts on initial load for existing notifications", async () => {
+      mockGet.mockResolvedValue({ data: MOCK_NOTIFICATIONS, meta: undefined });
+
+      const wrapper = mountWithAppContext(<UserNotification />, {
+        apiContext: {
+          apiClient: { get: mockGet },
+          doOperations: mockDoOperations
+        }
+      });
+
+      await waitFor(() => {
+        expect(mockGet).toHaveBeenCalled();
+      });
+
+      // Toast stack items should not be present on initial render
+      const toastItems =
+        wrapper.container.querySelectorAll(".toast-stack-item");
+      expect(toastItems.length).toBe(0);
     });
   });
 
@@ -398,7 +421,7 @@ describe("UserNotification", () => {
 
       // Open dropdown
       const button = wrapper.getByLabelText("Notifications");
-      fireEvent.click(button);
+      await userEvent.click(button);
 
       await waitFor(() => {
         expect(wrapper.getByText(/Mark all as read/i)).toBeInTheDocument();
@@ -426,7 +449,7 @@ describe("UserNotification", () => {
 
       // Open dropdown
       const button = wrapper.getByLabelText("Notifications");
-      fireEvent.click(button);
+      await userEvent.click(button);
 
       await waitFor(() => {
         expect(
@@ -455,7 +478,7 @@ describe("UserNotification", () => {
 
       // Open dropdown
       const bellButton = wrapper.getByLabelText("Notifications");
-      fireEvent.click(bellButton);
+      await userEvent.click(bellButton);
 
       await waitFor(() => {
         expect(wrapper.getByText(/Mark all as read/i)).toBeInTheDocument();
@@ -463,7 +486,7 @@ describe("UserNotification", () => {
 
       // Click mark all as read
       const markAllButton = wrapper.getByText(/Mark all as read/i);
-      fireEvent.click(markAllButton);
+      await userEvent.click(markAllButton);
 
       await waitFor(() => {
         expect(mockDoOperations).toHaveBeenCalled();
@@ -575,7 +598,7 @@ describe("UserNotification", () => {
 
       // Open dropdown
       const button = wrapper.getByLabelText("Notifications");
-      fireEvent.click(button);
+      await userEvent.click(button);
 
       await waitFor(() => {
         const cards = wrapper.container.querySelectorAll(".notification-card");
@@ -603,7 +626,7 @@ describe("UserNotification", () => {
 
       // Open dropdown
       const button = wrapper.getByLabelText("Notifications");
-      fireEvent.click(button);
+      await userEvent.click(button);
 
       await waitFor(() => {
         expect(wrapper.getAllByText("Notification 1")[0]).toBeInTheDocument();
@@ -613,7 +636,7 @@ describe("UserNotification", () => {
       const firstCard = wrapper.container.querySelector(
         ".notification-card.unread"
       );
-      fireEvent.click(firstCard!);
+      await userEvent.click(firstCard!);
 
       await waitFor(() => {
         expect(mockDoOperations).toHaveBeenCalled();

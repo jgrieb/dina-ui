@@ -1,5 +1,6 @@
 import {
   DateField,
+  DeleteButton,
   DinaForm,
   MultilingualDescription,
   MultilingualTitle,
@@ -29,16 +30,15 @@ import {
 } from "react";
 import { GroupSelectField } from "../../components";
 import {
+  CONTROLLED_VOCABULARY_APIS,
+  ControlledVocabularyApi,
   getInitialVocabularyElementType,
   transformControlledVocabularyItemForForm
 } from "../../components/controlled-vocabulary/controlledVocabularyItemUtils";
 import PageLayout from "../../components/page/PageLayout";
 import { DinaMessage, useDinaIntl } from "../../intl/dina-ui-intl";
 import {
-  CollectionModuleType,
-  COLLECTION_MODULE_TYPES,
-  COLLECTION_MODULE_TYPE_LABELS,
-  MANAGED_ATTRIBUTE_TYPE_OPTIONS,
+  VOCABULARY_ELEMENT_TYPE_OPTIONS,
   VocabularyElementType
 } from "../../types/collection-api";
 import { ControlledVocabularyItem } from "../../types/collection-api/resources/ControlledVocabularyItem";
@@ -59,15 +59,20 @@ function useFormSubmission() {
   return useContext(FormSubmissionContext);
 }
 
-export function ControlledVocabularyItemEditPage({ router }: WithRouterProps) {
+export function ControlledVocabularyItemEditPage({
+  router,
+  api = "collection"
+}: WithRouterProps & { api?: ControlledVocabularyApi }) {
   const { id } = router.query;
+  const { apiPath, apiBaseUrl, viewRoute, listRoute } =
+    CONTROLLED_VOCABULARY_APIS[api];
   const title = id
     ? "editControlledVocabularyItemTitle"
     : "addControlledVocabularyItemTitle";
 
   const query = useQuery<ControlledVocabularyItem>(
     {
-      path: `collection-api/controlled-vocabulary-item/${id}`,
+      path: `${apiPath}/controlled-vocabulary-item/${id}`,
       include: "controlledVocabulary"
     },
     { disabled: id === undefined }
@@ -82,6 +87,10 @@ export function ControlledVocabularyItemEditPage({ router }: WithRouterProps) {
               router={router}
               fetchedItem={data}
               title={title}
+              api={api}
+              apiBaseUrl={apiBaseUrl}
+              viewRoute={viewRoute}
+              listRoute={listRoute}
             />
           ))}
         </div>
@@ -89,6 +98,10 @@ export function ControlledVocabularyItemEditPage({ router }: WithRouterProps) {
         <ControlledVocabularyItemEditPageContent
           router={router}
           title={title}
+          api={api}
+          apiBaseUrl={apiBaseUrl}
+          viewRoute={viewRoute}
+          listRoute={listRoute}
         />
       )}
     </>
@@ -99,12 +112,20 @@ interface ControlledVocabularyItemEditPageContentProps {
   fetchedItem?: PersistedResource<ControlledVocabularyItem>;
   router: WithRouterProps["router"];
   title: string;
+  api: ControlledVocabularyApi;
+  apiBaseUrl: string;
+  viewRoute: string;
+  listRoute: string;
 }
 
 function ControlledVocabularyItemEditPageContent({
   fetchedItem,
   router,
-  title
+  title,
+  api,
+  apiBaseUrl,
+  viewRoute,
+  listRoute
 }: ControlledVocabularyItemEditPageContentProps) {
   const { formatMessage } = useDinaIntl();
   const formRef =
@@ -117,7 +138,7 @@ function ControlledVocabularyItemEditPageContent({
   const onSubmit = useSubmitHandler<InputResource<ControlledVocabularyItem>>({
     resourceType: "controlled-vocabulary-item",
     original: fetchedItem,
-    saveOptions: { apiBaseUrl: "/collection-api" },
+    saveOptions: { apiBaseUrl },
     relationshipMappings: [
       {
         sourceAttribute: "controlledVocabulary",
@@ -151,20 +172,47 @@ function ControlledVocabularyItemEditPageContent({
           delete submittedValues.unit;
         }
 
-        // Convert the editable format to the stored format:
+        // Convert the editable format to the stored format. Only include the
+        // non-empty descriptions, and set to null if all of them are empty.
         if (submittedValues.multilingualDescription) {
-          submittedValues.multilingualDescription = {
-            descriptions: _.toPairs(
+          try {
+            const descriptions = _.toPairs(
               submittedValues.multilingualDescription
-            ).map(([lang, desc]) => ({ lang, desc }))
-          };
-        }
-        if (submittedValues.multilingualTitle) {
-          submittedValues.multilingualTitle = {
-            titles: _.toPairs(submittedValues.multilingualTitle).map(
-              ([lang, title]) => ({ lang, title })
             )
-          };
+              .map(([lang, desc]) => ({ lang, desc }))
+              .filter(
+                ({ desc }) =>
+                  desc !== null &&
+                  desc !== undefined &&
+                  String(desc).trim() !== ""
+              );
+
+            submittedValues.multilingualDescription =
+              descriptions.length > 0 ? { descriptions } : (null as any);
+          } catch (_) {
+            // If the value is in an unexpected format, don't save anything.
+            submittedValues.multilingualDescription = null as any;
+          }
+        }
+        // Convert the editable format to the stored format. Only include the
+        // non-empty titles, and set to null if all of them are empty.
+        if (submittedValues.multilingualTitle) {
+          try {
+            const titles = _.toPairs(submittedValues.multilingualTitle)
+              .map(([lang, title]) => ({ lang, title }))
+              .filter(
+                ({ title }) =>
+                  title !== null &&
+                  title !== undefined &&
+                  String(title).trim() !== ""
+              );
+
+            submittedValues.multilingualTitle =
+              titles.length > 0 ? { titles } : (null as any);
+          } catch (_) {
+            // If the value is in an unexpected format, don't save anything.
+            submittedValues.multilingualTitle = null as any;
+          }
         }
 
         // Uri template should be null if empty string, and should include $1 if not empty.
@@ -179,7 +227,7 @@ function ControlledVocabularyItemEditPageContent({
       }
     ],
     onSuccess: async (savedItem) => {
-      await router.push(`/controlled-vocabulary-item/view?id=${savedItem.id}`);
+      await router.push(`${viewRoute}?id=${savedItem.id}`);
     }
   });
 
@@ -192,22 +240,26 @@ function ControlledVocabularyItemEditPageContent({
   const id = fetchedItem?.id;
   const backButton =
     id === undefined ? (
-      <Link
-        href="/controlled-vocabulary/list"
-        className="back-button my-auto me-auto"
-      >
+      <Link href={listRoute} className="back-button my-auto me-auto">
         <DinaMessage id="backToList" />
       </Link>
     ) : (
       <Link
-        href={`/controlled-vocabulary-item/view?id=${id}`}
+        href={`${viewRoute}?id=${id}`}
         className="back-button my-auto me-auto"
       >
         <DinaMessage id="backToReadOnlyPage" />
       </Link>
     );
 
-  const buttonBarContent = <ButtonBarContent backButton={backButton} />;
+  const buttonBarContent = (
+    <ButtonBarContent
+      backButton={backButton}
+      id={id}
+      apiBaseUrl={apiBaseUrl}
+      listRoute={listRoute}
+    />
+  );
 
   return (
     <FormSubmissionContext.Provider value={{ submitForm, formRef }}>
@@ -220,14 +272,27 @@ function ControlledVocabularyItemEditPageContent({
           onSubmit={onSubmit}
           innerRef={formRef}
         >
-          <ControlledVocabularyItemFormLayout isEditMode={!!fetchedItem} />
+          <ControlledVocabularyItemFormLayout
+            isEditMode={!!fetchedItem}
+            api={api}
+          />
         </DinaForm>
       </PageLayout>
     </FormSubmissionContext.Provider>
   );
 }
 
-function ButtonBarContent({ backButton }: { backButton: React.JSX.Element }) {
+function ButtonBarContent({
+  backButton,
+  id,
+  apiBaseUrl,
+  listRoute
+}: {
+  backButton: React.JSX.Element;
+  id?: string;
+  apiBaseUrl: string;
+  listRoute: string;
+}) {
   const { submitForm } = useFormSubmission();
 
   return (
@@ -243,29 +308,46 @@ function ButtonBarContent({ backButton }: { backButton: React.JSX.Element }) {
           <FaFloppyDisk className="me-2" />
           <DinaMessage id="submitBtnText" />
         </button>
+        {id && (
+          <DeleteButton
+            id={id}
+            options={{ apiBaseUrl }}
+            postDeleteRedirect={listRoute}
+            type="controlled-vocabulary-item"
+            messageBody={<DinaMessage id="managedAttributeDeleteWarning" />}
+          />
+        )}
       </div>
     </>
   );
 }
 
-export function ControlledVocabularyItemFormLayout({ isEditMode = false }) {
+export function ControlledVocabularyItemFormLayout({
+  isEditMode = false,
+  api = "collection"
+}: {
+  isEditMode?: boolean;
+  api?: ControlledVocabularyApi;
+}) {
   const { formatMessage } = useDinaIntl();
   const { readOnly, initialValues } = useDinaFormContext();
   const { isAdmin } = useAccount();
+  const { apiPath, componentTypes, componentTypeLabels } =
+    CONTROLLED_VOCABULARY_APIS[api];
 
   const [vocabularyElementType, setVocabularyElementType] = useState<
     VocabularyElementType | undefined
   >(getInitialVocabularyElementType(initialValues));
 
-  const ATTRIBUTE_TYPE_OPTIONS = MANAGED_ATTRIBUTE_TYPE_OPTIONS.map(
+  const ATTRIBUTE_TYPE_OPTIONS = VOCABULARY_ELEMENT_TYPE_OPTIONS.map(
     ({ labelKey, value }) => ({ label: formatMessage(labelKey), value })
   );
 
   const ATTRIBUTE_COMPONENT_OPTIONS: {
     label: string;
-    value: CollectionModuleType;
-  }[] = COLLECTION_MODULE_TYPES.map((dataType) => ({
-    label: formatMessage(COLLECTION_MODULE_TYPE_LABELS[dataType] as any),
+    value: string;
+  }[] = componentTypes.map((dataType) => ({
+    label: formatMessage(componentTypeLabels[dataType] as any),
     value: dataType
   }));
 
@@ -293,7 +375,7 @@ export function ControlledVocabularyItemFormLayout({ isEditMode = false }) {
               )
               .build()
           }
-          model="collection-api/controlled-vocabulary"
+          model={`${apiPath}/controlled-vocabulary`}
           optionLabel={(cv) => cv.name}
           omitNullOption={true}
         />

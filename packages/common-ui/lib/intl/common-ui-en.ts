@@ -11,7 +11,13 @@ export const COMMON_UI_MESSAGES_ENGLISH = {
   addNew: "Add New",
   agricultureCanada: "Agriculture and Agri-Food Canada",
   areYouSure: "Are you sure?",
-  attached: "Attached",
+  append: "Append",
+  append_tooltip:
+    "In append mode, tags entered here will be added to each record's existing tags rather than replacing them.",
+  replace: "Replace",
+  replace_tooltip:
+    "In replace mode, tags entered here will overwrite all existing tags for each record.",
+  linked: "Linked Collecting Event",
   attributeLabel: "Attribute",
   autoFillGeoSuggestLabel:
     "Auto-fill Location Fields (This search box's value is not persisted)",
@@ -52,7 +58,7 @@ export const COMMON_UI_MESSAGES_ENGLISH = {
   deleteSelectedButtonText: "Delete Selected",
   description: "Description",
   destroyedLabel: "Destroyed",
-  detach: "Detach",
+  unlink: "Unlink",
   done: "Done",
   dropdownSearchResults: "Search results",
   editAll: "Edit All",
@@ -126,6 +132,7 @@ export const COMMON_UI_MESSAGES_ENGLISH = {
   no: "No",
   noRowsFound: "No Rows Found",
   none: "None",
+  noneOption: "<None>",
   of: "of",
   oneValuePerLine: "One value per line",
   oneValuePerLineTooltip:
@@ -164,6 +171,7 @@ export const COMMON_UI_MESSAGES_ENGLISH = {
   subjectTermsForPage:
     "government information, scientific information, scientific research",
   submitBtnText: "Save",
+  tableFilteredFromCount: "filtered from {totalCount} total",
   tableSelectedCount: "Total selected records: {totalCount}",
   tableTotalCount: "Total matched records: {totalCount}",
   targetField: "Target Field",
@@ -193,7 +201,8 @@ export const COMMON_UI_MESSAGES_ENGLISH = {
   backToParentFile: "Back to parent file: {parentFilename}",
   attachSelected: "Attach Selected",
   notifications: "Notifications",
-  noNotifications: "No notifications",
+  noNotifications: "All caught up!",
+  noNotificationsMessage: "No new notifications right now.",
   markAllAsRead: "Mark all as read",
   notificationErrorTitle: "Failed to load notifications",
   notificationErrorMessage:

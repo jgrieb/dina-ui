@@ -1,7 +1,7 @@
 import { PersistedResource } from "kitsu";
-import { ManagedAttribute } from "../../../../types/collection-api";
+import { ControlledVocabularyItem } from "../../../../types/collection-api";
 import MetadataEditPage from "../../../../pages/object-store/metadata/edit";
-import { mountWithAppContext } from "common-ui";
+import { clearAndType, mountWithAppContext } from "common-ui";
 import { License, Metadata, Person } from "../../../../types/objectstore-api";
 import { fireEvent, waitFor, within } from "@testing-library/react";
 import "@testing-library/jest-dom";
@@ -11,7 +11,9 @@ const mockGet = jest.fn(async (path, params) => {
   switch (path) {
     case "objectstore-api/metadata/25f81de5-bbee-430c-b5fa-71986b70e612":
       return { data: TEST_METADATA };
-    case "objectstore-api/managed-attribute":
+    case "/objectstore-api/file/testbucket/9a85b858-f8f0-4a97-99a8-07b2cb759766":
+      return { data: "mock-blob-data" };
+    case "objectstore-api/controlled-vocabulary-item":
       if (params?.filter?.key?.EQ === "test_managed_attribute") {
         return Promise.resolve({
           data: [
@@ -19,7 +21,9 @@ const mockGet = jest.fn(async (path, params) => {
               id: "a360a695-bbff-4d58-9a07-b6d6c134b208",
               name: "test-managed-attribute",
               key: "test_managed_attribute",
-              vocabularyElementType: "STRING"
+              type: "controlled-vocabulary-item",
+              group: "system",
+              dinaComponent: "METADATA"
             }
           ]
         });
@@ -103,11 +107,13 @@ const TEST_METADATA: PersistedResource<Metadata> = {
   ]
 };
 
-const TEST_MANAGED_ATTRIBUTE: PersistedResource<ManagedAttribute> = {
-  type: "managed-attribute",
+const TEST_MANAGED_ATTRIBUTE: PersistedResource<ControlledVocabularyItem> = {
+  type: "controlled-vocabulary-item",
   id: "a360a695-bbff-4d58-9a07-b6d6c134b208",
   name: "test-managed-attribute",
-  key: "test-managed-attribute",
+  key: "test_managed_attribute",
+  group: "system",
+  dinaComponent: "METADATA",
   vocabularyElementType: "STRING"
 };
 
@@ -156,9 +162,11 @@ describe("Metadata single record edit page.", () => {
     expect(wrapper.getByText(/tag2/i)).toBeInTheDocument();
     expect(wrapper.getByText(/tag3/i)).toBeInTheDocument();
 
-    expect(
-      wrapper.getByDisplayValue(/test\-managed\-attribute\-value/i)
-    ).toBeInTheDocument();
+    await waitFor(() => {
+      expect(
+        wrapper.getByDisplayValue(/test\-managed\-attribute\-value/i)
+      ).toBeInTheDocument();
+    });
 
     // Set new values:
     await userEvent.click(
@@ -171,24 +179,24 @@ describe("Metadata single record edit page.", () => {
       wrapper.getByRole("button", { name: /remove tag3/i })
     );
 
-    fireEvent.change(wrapper.getByRole("combobox", { name: /tags/i }), {
-      target: { value: "new tag 1" }
-    });
+    await userEvent.type(
+      wrapper.getByRole("combobox", { name: /tags/i }),
+      "new tag 1"
+    );
     await userEvent.click(
       wrapper.getByRole("option", { name: /add "new tag 1"/i })
     );
-    fireEvent.change(wrapper.getByRole("combobox", { name: /tags/i }), {
-      target: { value: "new tag 2" }
-    });
+    await userEvent.type(
+      wrapper.getByRole("combobox", { name: /tags/i }),
+      "new tag 2"
+    );
     await userEvent.click(
       wrapper.getByRole("option", { name: /add "new tag 2"/i })
     );
 
-    fireEvent.change(
+    await clearAndType(
       wrapper.getByDisplayValue(/test\-managed\-attribute\-value/i),
-      {
-        target: { value: "new-managed-attribute-value" }
-      }
+      "new-managed-attribute-value"
     );
 
     const publiclyReleasableSelect = within(
@@ -196,7 +204,7 @@ describe("Metadata single record edit page.", () => {
     ).getByRole("combobox");
 
     fireEvent.keyDown(publiclyReleasableSelect, { key: "ArrowDown" });
-    fireEvent.click(
+    await userEvent.click(
       wrapper.getByRole("option", { name: /no - not publicly releasable/i })
     );
 
@@ -206,11 +214,9 @@ describe("Metadata single record edit page.", () => {
       ).toBeInTheDocument();
     });
 
-    fireEvent.change(
+    await userEvent.type(
       wrapper.getByRole("textbox", { name: /not publicly releasable reason/i }),
-      {
-        target: { value: "new reason for not publicly releasable" }
-      }
+      "new reason for not publicly releasable"
     );
 
     // Submit form

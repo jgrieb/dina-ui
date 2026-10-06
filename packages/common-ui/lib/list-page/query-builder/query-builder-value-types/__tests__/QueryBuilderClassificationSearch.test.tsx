@@ -9,7 +9,7 @@ import QueryRowClassificationSearch, {
   transformClassificationToDSL
 } from "../QueryBuilderClassificationSearch";
 
-export const TEST_CLASSIFICATIONS: Vocabulary = {
+const TEST_CLASSIFICATIONS: Vocabulary = {
   id: "taxonomicRank",
   type: "vocabulary",
   vocabularyElements: [
@@ -135,9 +135,9 @@ describe("QueryBuilderClassificationSearch", () => {
           transformClassificationToDSL({
             value: `{"selectedClassificationRank":"kingdom","selectedOperator":"${operator}","searchValue":"Animalia"}`,
             fieldPath:
-              "included.attributes.targetOrganismPrimaryClassification",
+              "included.attributes.targetIdentifiableEntitySummary.primaryDetermination.classification",
             fieldInfo: {
-              path: "included.attributes.targetOrganismPrimaryClassification",
+              path: "included.attributes.targetIdentifiableEntitySummary.primaryDetermination.classification",
               distinctTerm: false,
               hideField: false,
               keywordMultiFieldSupport: false,
@@ -159,9 +159,9 @@ describe("QueryBuilderClassificationSearch", () => {
           transformClassificationToDSL({
             value: `{"selectedClassificationRank":"kingdom","selectedOperator":"${operator}","searchValue":"Animalia"}`,
             fieldPath:
-              "included.attributes.targetOrganismPrimaryClassification",
+              "included.attributes.targetIdentifiableEntitySummary.primaryDetermination.classification",
             fieldInfo: {
-              path: "included.attributes.targetOrganismPrimaryClassification",
+              path: "included.attributes.targetIdentifiableEntitySummary.primaryDetermination.classification",
               parentName: "parentMaterialSample",
               parentType: "material-sample",
               distinctTerm: false,

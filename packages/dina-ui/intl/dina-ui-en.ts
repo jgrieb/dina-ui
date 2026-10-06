@@ -64,11 +64,13 @@ export const DINAUI_MESSAGES_ENGLISH = {
   additionalRemarks: "Additional Remarks",
   agent: "Agent",
   agentDetails: "Agent Details",
+  agentLinkStatus: "Agent Link",
   agentName: "Agent Name",
   agentRemarks: "Agent Remarks",
   agentRole: "Agent Role",
   peopleTitle: "People",
   agentsSectionTitle: "Agents",
+  allGroups: "All Groups",
   allowDuplicate: "Allow Duplicate",
   allowExisting: "Allow Existing",
   allowNew: "Allow New",
@@ -77,6 +79,8 @@ export const DINAUI_MESSAGES_ENGLISH = {
   assemblage: "Assemblage",
   assemblageAttachments: "Assemblage Attachments",
   assemblageListTitle: "Assemblages",
+  assemblageDeleteLinkedSamplesWarning:
+    "This assemblage has {count} linked material sample(s). The samples must be unlinked before the assemblage can be deleted. Confirm to unlink all samples and delete the assemblage.",
   assemblageManagedAttributes: "Assemblage Managed Attributes",
   siteManagedAttributes: "Site Managed Attributes",
   assemblage_tooltip:
@@ -90,7 +94,27 @@ export const DINAUI_MESSAGES_ENGLISH = {
   association: "Association",
   associationType: "Association Type",
   associationsLegend: "Associations",
-  attachExisting: "Attach Existing",
+  linkExisting: "Link Existing",
+  unlinkAll: "Unlink All",
+  noCollectingEventAttached:
+    "None of these material samples currently have a Collecting Event.",
+  mixedCollectingEventAttached:
+    "The selected material samples are linked to different collecting events. Edit the individual material samples to see the attached collecting event.",
+  sameCollectingEventAttached:
+    "All material samples being bulk edited share the same collecting event.",
+  overrideCollectingEventBulk:
+    "The selected collecting event will replace all existing collecting event links across all material samples when saved.",
+  overrideCollectingEvent:
+    "The selected collecting event will replace the previously linked collecting event for this material sample when saved.",
+  unlinkAllTitle: "Unlink collecting events?",
+  unlinkAllBody:
+    "Are you sure you want to unlink the collecting event(s) from the selected material samples? This change will take effect once you save the bulk edit.",
+  unlinkAllNotice:
+    "Collecting event(s) will be unlinked from the material samples when the form is saved.",
+  replaceExistingLinkNotice:
+    "Selecting and linking a new collecting event will replace any currently linked collecting events upon saving.",
+  createNewLinkNotice:
+    "Creating a new collecting event to link to this material sample will replace any currently linked collecting events upon saving.",
   attachExistingObjects: "Attach Existing Objects",
   attachSelected: "Attach Selected",
   attachedMaterialSamples: "Attached Material Samples",
@@ -217,7 +241,7 @@ export const DINAUI_MESSAGES_ENGLISH = {
   createAndAssign: "Create & Assign",
   createFormTemplate: "Create Form Template",
   createMaterialSampleFormTemplate: "Create Material Sample Form Template",
-  createNew: "Create new",
+  createNew: "Create New",
   createNewLabel: "Create New",
   createNewMaterialSamples: "Create New Material Samples",
   createNewView: "Create New View",
@@ -466,6 +490,7 @@ export const DINAUI_MESSAGES_ENGLISH = {
     "The ellipsoid, geodetic datum, or spatial reference system (SRS) upon which coordinates given in verbatimLatitude and verbatimLongitude, or verbatimCoordinates are based. Recommended best practice is to use the EPSG code of the SRS, if known. Examples: EPSG:4326, WGS84, NAD27",
   field_editableBuiltInAttributes: "Visible Built In Attributes",
   field_email: "Email",
+  field_emailAddress: "Email Address",
   field_enableGrid: "Enable Grid",
   field_enableGrid_tooltip:
     "Create a grid to store contents. Cannot have child storage units.",
@@ -548,6 +573,7 @@ export const DINAUI_MESSAGES_ENGLISH = {
     "Other numbers or identifiers associated with the collecting event that help to distinguish it. Do NOT include specimen-based identifiers such as accession numbers.",
   field_parentStorageUnit: "Location",
   field_participants: "Participants",
+  field_path: "Path",
   field_personMandatoryFieldsError: "The display name field is required.",
   field_personIdentifierTypeError: "Identifier type is required.",
   field_personIdentifierValueError: "Identifier value is required.",
@@ -596,8 +622,19 @@ export const DINAUI_MESSAGES_ENGLISH = {
   field_tags: "Tags",
   field_targetOrganismPrimaryScientificName:
     "Target Organism Primary Scientific Name",
-  field_targetOrganismPrimaryClassification:
-    "Target Organism Primary Classification",
+  "field_targetIdentifiableEntitySummary.sex": "Target Identifiable Entity Sex",
+  "field_targetIdentifiableEntitySummary.lifeStage":
+    "Target Identifiable Entity Life Stage",
+  "field_targetIdentifiableEntitySummary.dwcVernacularName":
+    "Target Identifiable Entity Vernacular Name",
+  "field_targetIdentifiableEntitySummary.managedAttributes":
+    "Target Identifiable Entity Managed Attributes",
+  "field_targetIdentifiableEntitySummary.primaryDetermination.typeStatus":
+    "Target Identifiable Entity Primary Determination Type Status",
+  "field_targetIdentifiableEntitySummary.primaryDetermination.classification":
+    "Target Identifiable Entity Primary Determination Classification",
+  "field_targetIdentifiableEntitySummary.primaryDetermination.managedAttributes":
+    "Target Identifiable Entity Primary Determination Managed Attributes",
   field_targetOrganismPrimaryGeoShape: "Target Organism Primary GeoShape",
   field_title: "Title",
   "field_title.en": "English Title",
@@ -607,6 +644,7 @@ export const DINAUI_MESSAGES_ENGLISH = {
   field_typeStatus: "Type Status",
   field_typeStatusEvidence: "Type Status Evidence",
   field_useNextSequence: "Use Next Available Identifier",
+  field_username: "Username",
   field_useTargetOrganism: "Use Target Organism",
   field_useTargetOrganismError:
     "Must select target Organism when Use Target Organism is enabled.",
@@ -626,6 +664,7 @@ export const DINAUI_MESSAGES_ENGLISH = {
   field_vocabularyElementType_picklist_label: "Pick List",
   field_vocabularyElementType_text_label: "Text",
   field_webpage: "Web Page",
+  field_lastUpdatedOn: "Last Updated On",
   field_xmpMetadataDate: "Last Updated On",
   field_xmpRightsOwner: "Owner",
   field_xmpMetadataDate_tooltip:
@@ -675,11 +714,20 @@ export const DINAUI_MESSAGES_ENGLISH = {
   goToThePreviousStep: "Go to the previous step",
   governmentOfCanada: "Government of Canada",
   governmentOfCanadaSymbol: "Symbol of the Government of Canada",
-  groupName: "Name",
-  groupListTitle: "Groups",
   editGroupTitle: "Edit Group",
   group: "Group",
+  groupCode: "Group Code",
+  groupHasLabel: "Labeled",
+  groupLabel: "Label",
+  groupLabelStatus: "Label Status",
+  groupListTitle: "Groups",
+  groupMembership: "Membership",
+  groupMissingLabel: "Unlabeled",
   groupMustBeSelected: "Group must be selected",
+  groupName: "Name",
+  groupSearchPlaceholder: "Search by code, path or label",
+  groupsIBelongTo: "My Groups",
+  groupsIDoNotBelongTo: "Other Groups",
   hostOrganismLegend: "Host Organism",
   http403ForbiddenError: "Access is denied",
   http500InternalServerError: "Unhandled Server Error",
@@ -725,6 +773,8 @@ export const DINAUI_MESSAGES_ENGLISH = {
   managedAttributeEditTitle: "Edit Managed Attribute",
   managedAttributeTemplateOrderInfo:
     "This Managed Attribute layout will be saved into the Form Template.",
+  managedAttributeDeleteWarning:
+    "Deleting this Managed Attribute could impact existing untracked resources like exports or scripts. Are you sure you want to proceed?",
   managedAttributeValueLabel: "Value",
   managedAttributes: "Managed Attributes",
   managedAttributesViews: "Form Templates",
@@ -826,6 +876,8 @@ export const DINAUI_MESSAGES_ENGLISH = {
   isGeneric: "Generic",
   mustBeValidDecimalValue: "Must be a valid decimal value.",
   mustBeValidIntegerValue: "Must be a valid integer value.",
+  myGroups: "My Groups",
+  myRoleInGroup: "My Role",
   noChildren: "No Children",
   noFileToDisplay: "No file to display",
   noGroups: "No Groups",
@@ -899,6 +951,8 @@ export const DINAUI_MESSAGES_ENGLISH = {
   protocolViewTitle: "Protocol",
   publiclyReleasableOption: "Yes - Publicly Releasable",
   notPubliclyReleasableOption: "No - Not Publicly Releasable",
+  queryBuilder_value_in_case_sensitivity_notice:
+    "{count} items entered. Searches with over 100 items automatically run as case-sensitive to optimize performance.",
   queryBuilder_addSearchGroup: "Add sub-query",
   queryBuilder_addSearchRule: "Add query",
   queryBuilder_conjunction_and: "AND",
@@ -1006,14 +1060,18 @@ export const DINAUI_MESSAGES_ENGLISH = {
   rolesPerGroup: "Roles Per Group",
   runWorkflow: "Run Workflow",
   save: "Save",
-  bulkEditingAllSamples: "Editing {total} samples",
-  bulkEditingSampleOf: "Editing sample {current} of {total}",
+  bulkEditingAllSamples: "Editing {total} material samples",
+  bulkEditingSampleOf: "Editing material sample {current} of {total}",
   bulkEditingAllMetadata: "Editing {total} metadata records",
   bulkEditingMetadataOf: "Editing metadata {current} of {total}",
-  bulkEditLoadingProgress: "Loading sample data... {loaded} of {total}",
+  bulkEditLoadingProgress:
+    "Loading material sample data... {loaded} of {total}",
   bulkEditMetadataLoadingProgress: "Loading metadata... {loaded} of {total}",
   saveAll: "Save All",
   saveAndCopyToNext: "Save & Copy To Next",
+  saveSuccess: "Successfully saved record: ",
+  copyToNextSampleInProgressMessage:
+    'You are now working on a new copy based on "{displayName}". This copy will not be created until it\'s saved.',
   saveAndCopyToNextWarning:
     'The "{componentName}" data component was not automatically copied over since it\'s specific to the previous Material Sample. Would you like to duplicate it anyway?',
   saveAndCopyToNextWarningButton:
@@ -1179,6 +1237,9 @@ export const DINAUI_MESSAGES_ENGLISH = {
   typeAnythingOrPickAScientificName: "Type anything or pick a Scientific Name",
   typeNewTagOrSearchPreviousTags: "Type New Tag or Search Previous Tags",
   typeSpecimen: "Type Specimen",
+  resizeImages: "Resize Images",
+  resizeImagesJpegOnlyTooltip:
+    "Image resizing is only available when all selected files are JPEG format.",
   unit: "Unit",
   unsavedChanges: "Unsaved changes made",
   unsetAsDefault: "Unset as default",
@@ -1193,8 +1254,11 @@ export const DINAUI_MESSAGES_ENGLISH = {
   uploadPageTitle: "Upload Files",
   useCollectorGroupLabel: "Use Collector Group",
   useLastSelectedOrderView: "Use Last Selected Order View",
+  userHasAgent: "Linked",
   userListTitle: "Users",
+  userMissingAgent: "Unlinked",
   userMustBelongToGroup: "User must belong to a Group",
+  userSearchPlaceholder: "Search by username, name, email or agent",
   userViewTitle: "User",
   valueCad: "Value ($ CAD)",
   verbatimDeterminationLegend: "Verbatim Determination",
@@ -1378,6 +1442,13 @@ export const DINAUI_MESSAGES_ENGLISH = {
   savedExport_columnsToBeSaved: "Columns to be saved",
   export_columnsToExport: "Columns To Export",
   templateGenerator_columnsToGenerate: "Columns To Generate",
+  loadExistingTemplate: "Load Existing Template",
+  templateLoadedSuccessfully:
+    "Template has been loaded successfully. Template name and columns have been updated.",
+  templateColumnsUnmapped:
+    "The following columns could not be mapped: {columns}",
+  invalidTemplate:
+    "The uploaded template is invalid. Please ensure the template is generated from the template generator and has not been modified.",
   usage: "Usage",
   editContents: "Edit Contents",
   storageUnitGridTitle: "Storage Unit Grid",
@@ -1411,6 +1482,7 @@ export const DINAUI_MESSAGES_ENGLISH = {
   seqdbManagedAttributeTitle: "Sequencing",
   genericMolecularAnalysis: "Generic Molecular Analysis",
   molecularAnalysisRunItemName: "Run Item Name",
+  molecularAnalysisRunItemAttachments: "Run Item Attachments",
   qualityControlName: "Name:",
   qualityControlType: "Type:",
   collecting_event_tag_info:
@@ -1440,6 +1512,7 @@ export const DINAUI_MESSAGES_ENGLISH = {
   pasteRunItemName: "Paste Run Item Names",
   pasteQualityControlName: "Paste Quality Control Names",
   pasteMaterialSample: "Paste Material Samples",
+  permissionRoles: "Permissions",
   adminRoles: "Admin Roles",
   separator: "Separator",
   visibility: "Visibility",
@@ -1465,6 +1538,23 @@ export const DINAUI_MESSAGES_ENGLISH = {
   siteListTitle: "Site",
   siteAttachments: "Site Attachments",
   systemInfoTitle: "System Information",
+  systemInfoAttentionRequired: "Attention Required",
+  systemInfoDisabled: "Disabled",
+  systemInfoEnabled: "Enabled",
+  systemInfoEndpoint: "Endpoint",
+  systemInfoFetching: "Fetching system info...",
+  systemInfoLastRefreshed: "Last refreshed:",
+  systemInfoLatency: "Latency",
+  systemInfoLatencyMs: "{latencyMs} ms",
+  refreshButtonText: "Refresh",
+  systemInfoMessageConsumer: "Message Consumer",
+  systemInfoMessageProducer: "Message Producer",
+  systemInfoModuleInfo: "Module Info",
+  systemInfoStatusOffline: "Offline",
+  systemInfoStatusOnline: "Online",
+  systemInfoUnableToReachService: "Unable to reach service.",
+  systemInfoUnexpectedError: "Unexpected error.",
+  systemInfoUnknown: "Unknown",
   code: "Code",
   siteMap: "Site Map",
   siteCoordinates: "Site Coordinates",
@@ -1495,11 +1585,28 @@ export const DINAUI_MESSAGES_ENGLISH = {
   saveAsImage: "Save as Image",
   parentMaterialSampleDisabledTooltip:
     "Material Sample can only have a single link to one of the following relationships: Parent Material Sample or a collecting event.",
-  managedAttributeCollectionTabAlertTitle:
-    "Collection managed attributes have been moved.",
-  managedAttributeCollectionTabAlertDescription:
+  managedAttributeTabAlertTitle: "{module} managed attributes have been moved.",
+  managedAttributeTabAlertDescription:
     "They are now located on the new {link} page.",
   supportedFormats: "Supported Formats",
   maxFileSize: "Maximum file size",
-  openInNewTab: "Opens in new tab"
+  openInNewTab: "Opens in new tab",
+
+  // Permissions Table
+  tableTitle_permissions: "Permissions",
+  resource: "Resource",
+  operation_read: "Read",
+  operation_create: "Create",
+  operation_edit: "Edit",
+  operation_delete: "Delete",
+  permission_allowed: "Allowed",
+  permission_denied: "Denied",
+  permission_unavailable: "Unavailable",
+  permission_objectOwner: "Object Owner",
+  resource_materialSample: "Material Sample",
+  resource_controlledVocabulary: "Controlled Vocabulary",
+  resource_collection: "Collection",
+  resource_project: "Project",
+  resource_objectStore: "Object Metadata",
+  resource_agent: "Agent (person)"
 };

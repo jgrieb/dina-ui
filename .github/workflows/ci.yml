@@ -20,10 +20,10 @@ jobs:
         # awk NF: Remove additional empty lines.
         # jq -R .: Convert each line to a JSON string.
         # jq -s .: Combine them all into a single JSON array.
-        # jq -cM ...: This part will split it into 8 groups. The last group will probably not have enough to fill the full group.
+        # jq -cM ...: This part will split it into 12 groups. The last group will probably not have enough to fill the full group.
       - id: set-test-chunks
         name: split tests into chunks
-        run: echo "test-chunks=$(npx jest --listTests | shuf | awk NF | jq -R . | jq -s . | jq -cM '[_nwise(length / 7 | floor)]')" >> $GITHUB_OUTPUT
+        run: echo "test-chunks=$(npx jest --listTests | shuf | awk NF | jq -R . | jq -s . | jq -cM '(if (length / 11 | floor) > 0 then (length / 11 | floor) else 1 end) as $n | [range(0; length; $n) as $i | .[$i:$i+$n]]')" >> $GITHUB_OUTPUT
 
       - id: set-test-chunk-ids
         name: Set Chunk IDs
@@ -51,6 +51,37 @@ jobs:
         run: echo $CHUNKS | jq '.[${{ matrix.chunk }}] | .[] | @text' | xargs npx jest
         env:
           CHUNKS: ${{ needs.setup.outputs['test-chunks'] }}
+          JEST_CI_STATS_FILE: chunk-stats-${{ matrix.chunk }}.json
+          DEBUG_PRINT_LIMIT: 500
+      - name: Upload chunk stats for the run-level test report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-stats-chunk-${{ matrix.chunk }}
+          path: chunk-stats-${{ matrix.chunk }}.json
+          retention-days: 7
+          if-no-files-found: warn
+
+  # Merges every chunk's stats into one run-level report on the Summary page
+  test-report:
+    runs-on: ubuntu-latest
+    name: test report
+    needs: [setup, test-chunk]
+    if: always()
+    steps:
+      - uses: actions/checkout@v6
+      - name: Download chunk stats
+        continue-on-error: true
+        uses: actions/download-artifact@v4
+        with:
+          pattern: test-stats-chunk-*
+          path: test-stats
+          merge-multiple: true
+      - name: Compose run-level test report
+        env:
+          EXPECTED_CHUNKS: ${{ needs.setup.outputs['test-chunk-ids'] }}
+          TEST_RESULT: ${{ needs.test-chunk.result }}
+        run: node jest-ci-compose-report.js test-stats >> "$GITHUB_STEP_SUMMARY"
 
   build:
     runs-on: ubuntu-latest
@@ -120,12 +151,14 @@ jobs:
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
       - name: Build Image and Push
-        uses: docker/build-push-action@v3
+        uses: docker/build-push-action@v6
         with:
           context: .
           push: true
           tags: aafcbicoe/dina-ui:${{ env.VERSION_TAG }}
           provenance: false
+          # Force the builder engine to output standard Docker mediatypes for OKD
+          outputs: type=image,oci-mediatypes=false
 
   build-docs:
     runs-on: ubuntu-latest

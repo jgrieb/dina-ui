@@ -8,7 +8,8 @@ import {
   QueryState,
   useQuery,
   CustomQueryHook,
-  withResponse
+  withResponse,
+  LastUpdatedOn
 } from "common-ui";
 import { KitsuResource, PersistedResource } from "kitsu";
 import _ from "lodash";
@@ -256,6 +257,12 @@ function ViewPageLayoutInner<T extends KitsuResource>({
                         specialListUrl ? specialListUrl : `${entityLink}/list`
                       }
                       type={type}
+                      messageBody={
+                        type === "managed-attribute" ||
+                        type === "controlled-vocabulary-item" ? (
+                          <DinaMessage id="managedAttributeDeleteWarning" />
+                        ) : undefined
+                      }
                     />
                   ))}
               </div>
@@ -279,6 +286,7 @@ function ViewPageLayoutInner<T extends KitsuResource>({
                   <DinaMessage id="revisionsButtonText" />
                 </Link>
               )}
+              <LastUpdatedOn date={(data as any).lastUpdatedOn} />
             </main>
           </>
         );

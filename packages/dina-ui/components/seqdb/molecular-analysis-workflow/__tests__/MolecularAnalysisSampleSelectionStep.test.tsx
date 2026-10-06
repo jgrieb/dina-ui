@@ -1,4 +1,8 @@
-import { mountWithAppContext, waitForLoadingToDisappear } from "common-ui";
+import {
+  MATERIAL_SAMPLE_MAPPING,
+  mountWithAppContext,
+  waitForLoadingToDisappear
+} from "common-ui";
 import {
   MolecularAnalysisSampleSelectionStep,
   MolecularAnalysisSampleSelectionStepProps
@@ -9,7 +13,6 @@ import { DinaForm } from "common-ui";
 import userEvent from "@testing-library/user-event";
 import {
   TEST_GROUP,
-  TEST_MAPPING,
   TEST_MATERIAL_SAMPLE_SUMMARY,
   TEST_MOLECULAR_ANALYSIS,
   TEST_MOLECULAR_ANALYSIS_EMPTY,
@@ -57,7 +60,7 @@ const mockGet = jest.fn<any, any>(async (path, params) => {
     case "user-api/user-preference":
       return { data: [] };
     case "search-api/search-ws/mapping":
-      return TEST_MAPPING;
+      return MATERIAL_SAMPLE_MAPPING;
     case "seqdb-api/generic-molecular-analysis/" +
       TEST_MOLECULAR_ANALYSIS_EMPTY_ID:
       return TEST_MOLECULAR_ANALYSIS_EMPTY;
@@ -88,10 +91,8 @@ const mockAxiosGet = jest.fn(async (path, config) => {
       ids.includes(s.id)
     );
     return {
-      data: {
-        data: matchedSamples,
-        meta: { totalResourceCount: matchedSamples.length }
-      }
+      data: matchedSamples,
+      meta: { totalResourceCount: matchedSamples.length }
     };
   }
 
@@ -101,14 +102,12 @@ const mockAxiosGet = jest.fn(async (path, config) => {
     const analyses = [TEST_MOLECULAR_ANALYSIS_EMPTY, TEST_MOLECULAR_ANALYSIS];
     const matched = analyses.filter((a) => ids.includes(a.id));
     return {
-      data: {
-        data: matched,
-        meta: { totalResourceCount: matched.length }
-      }
+      data: matched,
+      meta: { totalResourceCount: matched.length }
     };
   }
 
-  return { data: { data: [], meta: { totalResourceCount: 0 } } };
+  return { data: [], meta: { totalResourceCount: 0 } };
 });
 
 const mockAxiosPost = jest.fn(async (path, _body) => {
@@ -122,12 +121,10 @@ const mockAxiosPost = jest.fn(async (path, _body) => {
 
 const mockBulkCreateResources = jest.fn(async (resources, _options) => {
   return {
-    data: {
-      data: resources.map((r, i) => ({
-        ...r,
-        id: i === 0 ? mockCreatedRunItemId : `mock-created-id-${i}`
-      }))
-    }
+    data: resources.map((r, i) => ({
+      ...r,
+      id: i === 0 ? mockCreatedRunItemId : `mock-created-id-${i}`
+    }))
   };
 });
 
@@ -141,10 +138,8 @@ const mockBulkLoadResources = jest.fn(async (ids, options) => {
       ids.includes(s.id)
     );
     return {
-      data: {
-        data: matched,
-        meta: { totalResourceCount: matched.length }
-      }
+      data: matched,
+      meta: { totalResourceCount: matched.length }
     };
   }
 
@@ -152,14 +147,12 @@ const mockBulkLoadResources = jest.fn(async (ids, options) => {
     const analyses = [TEST_MOLECULAR_ANALYSIS_EMPTY, TEST_MOLECULAR_ANALYSIS];
     const matched = analyses.filter((a) => ids.includes(a.id));
     return {
-      data: {
-        data: matched,
-        meta: { totalResourceCount: matched.length }
-      }
+      data: matched,
+      meta: { totalResourceCount: matched.length }
     };
   }
 
-  return { data: { data: [], meta: { totalResourceCount: 0 } } };
+  return { data: [], meta: { totalResourceCount: 0 } };
 });
 
 const testCtx = {

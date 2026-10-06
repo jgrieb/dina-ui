@@ -1,6 +1,10 @@
-import { mountWithAppContext, waitForLoadingToDisappear } from "common-ui";
+import {
+  mountWithAppContext,
+  waitForLoadingToDisappear,
+  clearAndType
+} from "common-ui";
 import { MetadataBulkEditor } from "../MetadataBulkEditor";
-import { waitFor, within } from "@testing-library/dom";
+import { waitFor, within } from "@testing-library/react";
 import {
   BUCKET,
   DC_RIGHTS,
@@ -24,7 +28,7 @@ const mockGet = jest.fn<any, any>(async (path, _params) => {
       return { data: [TEST_OBJECT_SUBTYPE_DATA] };
     case "objectstore-api/license":
       return { data: [] };
-    case "objectstore-api/managed-attribute":
+    case "objectstore-api/controlled-vocabulary-item":
       return { data: [] };
     case "agent-api/person":
       return { data: [] };
@@ -251,10 +255,7 @@ describe("MetadataBulkEditor", () => {
       const upload1Tab = wrapper.getByRole("tabpanel", {
         name: /upload1/i
       });
-      await userEvent.clear(
-        within(upload1Tab).getByRole("textbox", { name: /caption/i })
-      );
-      await userEvent.type(
+      await clearAndType(
         within(upload1Tab).getByRole("textbox", { name: /caption/i }),
         "Caption for Upload 1"
       );
@@ -264,10 +265,7 @@ describe("MetadataBulkEditor", () => {
       const upload2Tab = wrapper.getByRole("tabpanel", {
         name: /upload2/i
       });
-      await userEvent.clear(
-        within(upload2Tab).getByRole("textbox", { name: /caption/i })
-      );
-      await userEvent.type(
+      await clearAndType(
         within(upload2Tab).getByRole("textbox", { name: /caption/i }),
         "Caption for Upload 2"
       );
@@ -277,10 +275,7 @@ describe("MetadataBulkEditor", () => {
       const upload3Tab = wrapper.getByRole("tabpanel", {
         name: /upload3/i
       });
-      await userEvent.clear(
-        within(upload3Tab).getByRole("textbox", { name: /caption/i })
-      );
-      await userEvent.type(
+      await clearAndType(
         within(upload3Tab).getByRole("textbox", { name: /caption/i }),
         "Caption for Upload 3"
       );
@@ -506,10 +501,7 @@ describe("MetadataBulkEditor", () => {
       const editAllTab = wrapper.getByRole("tabpanel", { name: /edit all/i });
 
       // Change Caption for all records
-      await userEvent.clear(
-        within(editAllTab).getByRole("textbox", { name: "Caption No Changes" })
-      );
-      await userEvent.type(
+      await clearAndType(
         within(editAllTab).getByRole("textbox", { name: "Caption No Changes" }),
         "Bulk Updated Caption"
       );
@@ -574,10 +566,7 @@ describe("MetadataBulkEditor", () => {
       // Edit bulkEdit1.jpg
       await userEvent.click(wrapper.getByText(/bulkEdit1/i));
       const tab1 = wrapper.getByRole("tabpanel", { name: /bulkEdit1/i });
-      await userEvent.clear(
-        within(tab1).getByRole("textbox", { name: /caption/i })
-      );
-      await userEvent.type(
+      await clearAndType(
         within(tab1).getByRole("textbox", { name: /caption/i }),
         "Individual Caption 1"
       );
@@ -585,10 +574,7 @@ describe("MetadataBulkEditor", () => {
       // Edit bulkEdit2.jpg
       await userEvent.click(wrapper.getByText(/bulkEdit2/i));
       const tab2 = wrapper.getByRole("tabpanel", { name: /bulkEdit2/i });
-      await userEvent.clear(
-        within(tab2).getByRole("textbox", { name: /caption/i })
-      );
-      await userEvent.type(
+      await clearAndType(
         within(tab2).getByRole("textbox", { name: /caption/i }),
         "Individual Caption 2"
       );
@@ -596,10 +582,7 @@ describe("MetadataBulkEditor", () => {
       // Edit bulkEdit3.jpg
       await userEvent.click(wrapper.getByText(/bulkEdit3/i));
       const tab3 = wrapper.getByRole("tabpanel", { name: /bulkEdit3/i });
-      await userEvent.clear(
-        within(tab3).getByRole("textbox", { name: /caption/i })
-      );
-      await userEvent.type(
+      await clearAndType(
         within(tab3).getByRole("textbox", { name: /caption/i }),
         "Individual Caption 3"
       );
@@ -703,6 +686,155 @@ describe("MetadataBulkEditor", () => {
             {
               resource: {
                 acCaption: "",
+                id: "bulk-edit-3",
+                type: "metadata"
+              },
+              type: "metadata"
+            }
+          ],
+          {
+            apiBaseUrl: "/objectstore-api"
+          }
+        ]
+      ]);
+    });
+
+    it("Ability to append fields in the edit all tab.", async () => {
+      const wrapper = mountWithAppContext(
+        <MetadataBulkEditor
+          onSaved={mockOnSaved}
+          metadatas={TEST_BULK_EDIT_METADATA}
+        />,
+        testCtx as any
+      );
+
+      await waitForLoadingToDisappear();
+      await waitFor(() =>
+        expect(
+          wrapper.getByRole("combobox", {
+            name: /tags no changes multiple values/i
+          })
+        ).toBeInTheDocument()
+      );
+
+      // By default, append mode is selected, add a tag and save to ensure it's appended not replacing.
+      const tagDropdown = wrapper.getByRole("combobox", {
+        name: /tags no changes multiple values/i
+      });
+      await userEvent.click(tagDropdown);
+      await userEvent.type(tagDropdown, "New Tag{enter}"); // Hit the enter key after typing to add the new tag.
+
+      await waitFor(() => {
+        expect(wrapper.getByText(/changes made/i)).toBeInTheDocument();
+      });
+
+      // Click the "Save All" button
+      await userEvent.click(wrapper.getByRole("button", { name: /save all/i }));
+      await waitFor(() => expect(mockSave).toHaveBeenCalledTimes(1));
+
+      // Expect the tag to be appended, not replacing existing tags.
+      expect(mockSave.mock.calls).toEqual([
+        [
+          [
+            {
+              resource: {
+                acTags: [
+                  ...(TEST_BULK_EDIT_METADATA.at(0)?.acTags ?? []),
+                  "New Tag"
+                ],
+                id: "bulk-edit-1",
+                type: "metadata"
+              },
+              type: "metadata"
+            },
+            {
+              resource: {
+                acTags: [
+                  ...(TEST_BULK_EDIT_METADATA.at(1)?.acTags ?? []),
+                  "New Tag"
+                ],
+                id: "bulk-edit-2",
+                type: "metadata"
+              },
+              type: "metadata"
+            },
+            {
+              resource: {
+                acTags: [
+                  ...(TEST_BULK_EDIT_METADATA.at(2)?.acTags ?? []),
+                  "New Tag"
+                ],
+                id: "bulk-edit-3",
+                type: "metadata"
+              },
+              type: "metadata"
+            }
+          ],
+          {
+            apiBaseUrl: "/objectstore-api"
+          }
+        ]
+      ]);
+    });
+
+    it("Ability to replace (not append) fields in the edit all tab.", async () => {
+      const wrapper = mountWithAppContext(
+        <MetadataBulkEditor
+          onSaved={mockOnSaved}
+          metadatas={TEST_BULK_EDIT_METADATA}
+        />,
+        testCtx as any
+      );
+
+      await waitForLoadingToDisappear();
+      await waitFor(() =>
+        expect(
+          wrapper.getByRole("combobox", {
+            name: /tags no changes multiple values/i
+          })
+        ).toBeInTheDocument()
+      );
+
+      // By default, append mode is selected, switch to replace mode:
+      await userEvent.click(wrapper.getByText(/replace/i));
+
+      const tagDropdown = wrapper.getByRole("combobox", {
+        name: /tags no changes multiple values/i
+      });
+      await userEvent.click(tagDropdown);
+      await userEvent.type(tagDropdown, "Replace Tag{enter}"); // Hit the enter key after typing to add the new tag.
+
+      await waitFor(() => {
+        expect(wrapper.getByText(/changes made/i)).toBeInTheDocument();
+      });
+
+      // Click the "Save All" button
+      await userEvent.click(wrapper.getByRole("button", { name: /save all/i }));
+      await waitFor(() => expect(mockSave).toHaveBeenCalledTimes(1));
+
+      // Expect the tag to be replaced, not appended.
+      expect(mockSave.mock.calls).toEqual([
+        [
+          [
+            {
+              resource: {
+                acTags: ["Replace Tag"],
+                id: "bulk-edit-1",
+                type: "metadata"
+              },
+              type: "metadata"
+            },
+            {
+              resource: {
+                acTags: ["Replace Tag"],
+                id: "bulk-edit-2",
+                type: "metadata"
+              },
+              type: "metadata"
+            },
+            {
+              resource: {
+                acTags: ["Replace Tag"],
                 id: "bulk-edit-3",
                 type: "metadata"
               },

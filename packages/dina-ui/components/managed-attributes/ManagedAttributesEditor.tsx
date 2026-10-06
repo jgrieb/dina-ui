@@ -2,8 +2,10 @@ import {
   FieldSet,
   FieldSetProps,
   FieldSpy,
+  GROUP_SCOPE,
   ResourceSelect,
   SimpleSearchFilterBuilder,
+  useAccount,
   useBulkEditTabContext,
   useDinaFormContext
 } from "common-ui";
@@ -16,9 +18,12 @@ import {
 } from "../../types/collection-api";
 import { ManagedAttributesSorter } from "./managed-attributes-custom-views/ManagedAttributesSorter";
 import { ManagedAttributeFieldWithLabel } from "./ManagedAttributeField";
-import { useManagedAttributeQueries } from "./useManagedAttributeQueries";
 import _ from "lodash";
 import { COLLECTION_MANAGED_ATTRIBUTE_ID } from "../controlled-vocabulary/controlledVocabularyItemUtils";
+import { useIntl } from "react-intl";
+import { ManagedAttributesViewer } from "./ManagedAttributesViewer";
+import { ControlledVocabularyViewer } from "../controlled-vocabulary/ControlledVocabularyViewer";
+import { useBulkManagedAttributes } from "./useBulkManagedAttributes";
 
 export interface ManagedAttributesEditorProps {
   /** Formik path to the ManagedAttribute values field. */
@@ -59,6 +64,12 @@ export interface ManagedAttributesEditorProps {
    * Eventually, all managed attributes will be from controlled vocabulary endpoints and this prop can be removed, but for now it is needed to support both the existing managed attributes and the new controlled vocabulary items.
    */
   isControlledVocabulary?: boolean;
+
+  /**
+   * Controlled Vocabulary UUID used to scope managed attributes when isControlledVocabulary is true.
+   * Defaults to the collection managed attribute vocabulary.
+   */
+  controlledVocabularyId?: string;
 }
 
 interface ManagedAttributesEditorInnerProps
@@ -78,7 +89,8 @@ function ManagedAttributesEditorInner({
   managedAttributeOrderFieldName,
   disableClearButton = false,
   values,
-  isControlledVocabulary = false
+  isControlledVocabulary = false,
+  controlledVocabularyId = COLLECTION_MANAGED_ATTRIBUTE_ID
 }: ManagedAttributesEditorInnerProps) {
   const bulkCtx = useBulkEditTabContext();
   const { readOnly, isTemplate } = useDinaFormContext();
@@ -108,13 +120,13 @@ function ManagedAttributesEditorInner({
   }, [visibleAttributeKeysProp]);
 
   // Fetch the attributes (to display on the form, not the multiselect list), but omit any that are missing e.g. were deleted.
-
-  const { data: fetchedAttributes, loading } = useManagedAttributeQueries({
+  const { data: fetchedAttributes, loading } = useBulkManagedAttributes({
     keys: visibleAttributeKeys,
-    managedAttributeApiPath,
-    managedAttributeComponent,
-    disabled: !visibleAttributeKeys.length,
-    isControlledVocabulary
+    baseApiPath: managedAttributeApiPath,
+    dinaComponent: managedAttributeComponent,
+    disabled: readOnly || !visibleAttributeKeys.length,
+    isControlledVocabulary,
+    controlledVocabularyId
   });
 
   // Store the last fetched Attributes in a ref instead of showing a
@@ -145,6 +157,8 @@ function ManagedAttributesEditorInner({
                 name={managedAttributeOrderFieldName}
                 managedAttributeApiPath={managedAttributeApiPath}
                 valuesPath={valuesPath}
+                isControlledVocabulary={isControlledVocabulary}
+                controlledVocabularyId={controlledVocabularyId}
               />
             ) : (
               <div>
@@ -175,6 +189,7 @@ function ManagedAttributesEditorInner({
                       visibleAttributes={visibleAttributes}
                       loading={loading}
                       isControlledVocabulary={isControlledVocabulary}
+                      controlledVocabularyId={controlledVocabularyId}
                     />
                   </label>
                 </div>
@@ -183,18 +198,23 @@ function ManagedAttributesEditorInner({
           </div>
         </FieldSet>
       )}
-      {readOnly && (
-        <div className="row">
-          {visibleAttributes.map((attribute) => (
-            <ManagedAttributeFieldWithLabel
-              key={attribute.key}
-              attribute={attribute}
-              values={values}
-              valuesPath={valuesPath}
-              disableClearButton={disableClearButton}
-            />
-          ))}
-        </div>
+      {readOnly && !isControlledVocabulary && (
+        <ManagedAttributesViewer
+          values={currentValue}
+          managedAttributeApiPath={managedAttributeApiPath}
+          managedAttributeComponent={managedAttributeComponent}
+          controlledVocabularyId={
+            isControlledVocabulary ? controlledVocabularyId : undefined
+          }
+        />
+      )}
+      {readOnly && isControlledVocabulary && (
+        <ControlledVocabularyViewer
+          values={currentValue}
+          baseApi={managedAttributeApiPath}
+          dinaComponent={managedAttributeComponent}
+          controlledVocabularyUUID={controlledVocabularyId}
+        />
       )}
     </>
   );
@@ -238,6 +258,9 @@ export function DynamicResourceSelect<
   filterList?: (item?: PersistedResource<TData>) => boolean;
   pageSize?: number;
 }) {
+  const { groupNames } = useAccount();
+  const { formatMessage } = useIntl();
+
   const {
     onChange,
     onDataLoaded,
@@ -337,6 +360,8 @@ export function DynamicResourceSelect<
         isSearchable: true,
         onInputChange: handleInputChange
       }}
+      groupBy="group"
+      scopes={[GROUP_SCOPE(groupNames ?? [], formatMessage)]}
     />
   );
 }
@@ -348,7 +373,8 @@ export function ManagedAttributeMultiSelect({
   onChange,
   visibleAttributes,
   loading,
-  isControlledVocabulary = false
+  isControlledVocabulary = false,
+  controlledVocabularyId = COLLECTION_MANAGED_ATTRIBUTE_ID
 }: {
   managedAttributeComponent?: string;
   managedAttributeApiPath: string;
@@ -358,6 +384,7 @@ export function ManagedAttributeMultiSelect({
   >[];
   loading?: boolean;
   isControlledVocabulary: boolean;
+  controlledVocabularyId?: string;
 }) {
   const { locale } = useDinaIntl();
 
@@ -379,11 +406,11 @@ export function ManagedAttributeMultiSelect({
           builder.where(
             "controlledVocabulary.uuid",
             "EQ",
-            COLLECTION_MANAGED_ATTRIBUTE_ID
+            controlledVocabularyId
           )
         )
         .build(),
-    [managedAttributeComponent]
+    [managedAttributeComponent, controlledVocabularyId]
   );
 
   // Memoize the label function

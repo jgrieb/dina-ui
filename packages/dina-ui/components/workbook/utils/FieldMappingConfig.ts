@@ -6,7 +6,7 @@ import {
 } from "../";
 import {
   COLLECTION_MANAGED_ATTRIBUTE_ID,
-  MATERIAL_SAMPLE_OTHER_IDENTIFERS_ID
+  COLLECTION_OTHER_IDENTIFIERS_ID
 } from "@dina-ui/components/controlled-vocabulary/controlledVocabularyItemUtils";
 
 const FieldMappingConfig: FieldMappingConfigType = {
@@ -53,7 +53,7 @@ const FieldMappingConfig: FieldMappingConfigType = {
     identifiers: {
       dataType: WorkbookDataTypeEnum.CONTROLLED_VOCABULARY,
       filter: {
-        "controlledVocabulary.uuid": MATERIAL_SAMPLE_OTHER_IDENTIFERS_ID,
+        "controlledVocabulary.uuid": COLLECTION_OTHER_IDENTIFIERS_ID,
         dinaComponent: "MATERIAL_SAMPLE"
       }
     },
@@ -406,7 +406,7 @@ const FieldMappingConfig: FieldMappingConfigType = {
 
     managedAttributes: {
       dataType: WorkbookDataTypeEnum.MANAGED_ATTRIBUTES,
-      endpoint: "objectstore-api/managed-attribute",
+      endpoint: "objectstore-api/controlled-vocabulary-item",
       managedAttributeComponent: "ENTITY"
     }
   }
