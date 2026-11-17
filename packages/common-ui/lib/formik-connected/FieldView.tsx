@@ -13,6 +13,7 @@ export interface ReadOnlyValueProps {
   value: any;
   link?: string;
   bold?: boolean;
+  isExternalLink?: boolean;
 }
 
 /** Placeholder shown in place of a read-only field's value when it's empty. */
@@ -23,7 +24,12 @@ export function EmptyFieldValue() {
 const COLLAPSED_HEIGHT = 100; //px
 const EXPANDED_MAX_HEIGHT = 500; //px
 
-export function ReadOnlyValue({ value, link, bold }: ReadOnlyValueProps) {
+export function ReadOnlyValue({
+  value,
+  link,
+  bold,
+  isExternalLink
+}: ReadOnlyValueProps) {
   const [expanded, setExpanded] = useState(false);
   const [isOverflowing, setIsOverflowing] = useState(false);
   const [copyStatus, setCopyStatus] = useState<"" | "copied" | "error">("");
@@ -38,7 +44,13 @@ export function ReadOnlyValue({ value, link, bold }: ReadOnlyValueProps) {
   const content = isEmptyValue ? (
     <EmptyFieldValue />
   ) : link ? (
-    <Link href={link}>{value}</Link>
+    isExternalLink ? (
+      <a href={link} target="_blank" rel="noopener noreferrer">
+        {value}
+      </a>
+    ) : (
+      <Link href={link}>{value}</Link>
+    )
   ) : Array.isArray(value) ? (
     value.map((val, idx) => {
       const displayString = val?.name
